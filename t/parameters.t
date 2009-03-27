@@ -23,8 +23,8 @@ $p->params([]);
 $p->param(foo => 'bar');
 $p->param(baz => 'foo');
 
-is_deeply($p->to_hash, {'openid.foo' => 'bar', 'openid.baz' => 'foo'});
-is_deeply($p->to_hash, {'openid.foo' => 'bar', 'openid.baz' => 'foo'});
+is_deeply($p->to_hash, {'foo' => 'bar', 'baz' => 'foo'});
+is_deeply($p->to_hash, {'foo' => 'bar', 'baz' => 'foo'});
 
 $p = Protocol::OpenID::Parameters->new('ns:http://specs.openid.net/auth/2.0');
 is($p->param('ns'), 'http://specs.openid.net/auth/2.0');

@@ -80,6 +80,8 @@ sub to_hash {
     for (my $i = 0; $i < @$params; $i += 2) {
         my $key = $params->[$i];
 
+        $key =~ s/^openid\.//;
+
         $hash->{$key} = $params->[$i + 1];
     }
 
