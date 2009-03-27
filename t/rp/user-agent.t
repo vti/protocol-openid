@@ -1,4 +1,4 @@
-use Test::More tests => 9;
+use Test::More tests => 13;
 
 use_ok('Protocol::OpenID::RP');
 
@@ -66,18 +66,19 @@ my $rp = Protocol::OpenID::RP->new(
 $rp->authenticate(
     {openid_identifier => 'foo.exampleprovider.com'},
     sub {
-        my ($self, $url, $action, $location) = @_;
+        my ($self, $url, $action, $location, $params) = @_;
 
         is($action, 'redirect');
 
-        is( $location,
-            'https://www.exampleprovider.com/endpoint/?'
-              . 'openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0&'
-              . 'openid.mode=checkid_setup&'
-              . 'openid.claimed_id=http%3A%2F%2Ffoo.exampleprovider.com%2F&'
-              . 'openid.identity=https%3A%2F%2Fexampleuser.exampleprovider.com%2F&'
-              . 'openid.return_to=http%3A%2F%2Ffoo.bar',
-            'Claimed Identifier'
+        is($location, 'https://www.exampleprovider.com/endpoint/');
+
+        is_deeply($params,
+            {   'openid.ns'         => 'http://specs.openid.net/auth/2.0',
+                'openid.mode'       => 'checkid_setup',
+                'openid.claimed_id' => 'http://foo.exampleprovider.com/',
+                'openid.identity'   => 'https://exampleuser.exampleprovider.com/',
+                'openid.return_to'  => 'http://foo.bar'
+            }
         );
     }
 );
@@ -88,18 +89,19 @@ $rp->clear;
 $rp->authenticate(
     {openid_identifier => 'html.exampleprovider.com'},
     sub {
-        my ($self, $url, $action, $location) = @_;
+        my ($self, $url, $action, $location, $params) = @_;
 
         is($action, 'redirect');
 
-        is( $location,
-            'https://www.exampleprovider.com/?'
-              . 'openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0&'
-              . 'openid.mode=checkid_setup&'
-              . 'openid.claimed_id=http%3A%2F%2Fhtml.exampleprovider.com%2F&'
-              . 'openid.identity=https%3A%2F%2Fhtml.exampleprovider.com%2F&'
-              . 'openid.return_to=http%3A%2F%2Ffoo.bar',
-            'Claimed Identifier'
+        is($location, 'https://www.exampleprovider.com/');
+
+        is_deeply($params,
+            {   'openid.ns'         => 'http://specs.openid.net/auth/2.0',
+                'openid.mode'       => 'checkid_setup',
+                'openid.claimed_id' => 'http://html.exampleprovider.com/',
+                'openid.identity'   => 'https://html.exampleprovider.com/',
+                'openid.return_to'  => 'http://foo.bar'
+            }
         );
     }
 );
@@ -109,18 +111,19 @@ $rp->clear;
 $rp->authenticate(
     {openid_identifier => 'html2.exampleprovider.com'},
     sub {
-        my ($self, $url, $action, $location) = @_;
+        my ($self, $url, $action, $location, $params) = @_;
 
         is($action, 'redirect');
 
-        is( $location,
-            'https://www.exampleprovider.com/?'
-              . 'openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0&'
-              . 'openid.mode=checkid_setup&'
-              . 'openid.claimed_id=http%3A%2F%2Fhtml2.exampleprovider.com%2F&'
-              . 'openid.identity=http%3A%2F%2Fhtml2.exampleprovider.com%2F&'
-              . 'openid.return_to=http%3A%2F%2Ffoo.bar',
-            'Claimed Identifier'
+        is($location, 'https://www.exampleprovider.com/');
+
+        is_deeply($params,
+            {   'openid.ns'         => 'http://specs.openid.net/auth/2.0',
+                'openid.mode'       => 'checkid_setup',
+                'openid.claimed_id' => 'http://html2.exampleprovider.com/',
+                'openid.identity'   => 'http://html2.exampleprovider.com/',
+                'openid.return_to'  => 'http://foo.bar'
+            }
         );
     }
 );
@@ -130,18 +133,21 @@ $rp->clear;
 $rp->authenticate(
     {openid_identifier => 'exampleprovider.com'},
     sub {
-        my ($self, $url, $action, $location) = @_;
+        my ($self, $url, $action, $location, $params) = @_;
 
         is($action, 'redirect');
 
-        is( $location,
-            'https://www.exampleprovider.com/endpoint/?'
-              . 'openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0&'
-              . 'openid.mode=checkid_setup&'
-              . 'openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&'
-              . 'openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&'
-              . 'openid.return_to=http%3A%2F%2Ffoo.bar',
-            'OP Identifier'
+        is($location, 'https://www.exampleprovider.com/endpoint/');
+
+        is_deeply($params,
+            {   'openid.ns'   => 'http://specs.openid.net/auth/2.0',
+                'openid.mode' => 'checkid_setup',
+                'openid.claimed_id' =>
+                  'http://specs.openid.net/auth/2.0/identifier_select',
+                'openid.identity' =>
+                  'http://specs.openid.net/auth/2.0/identifier_select',
+                'openid.return_to' => 'http://foo.bar'
+            }
         );
     }
 );

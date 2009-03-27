@@ -71,7 +71,7 @@ sub param {
 }
 
 sub to_hash {
-    my $self   = shift;
+    my $self = shift;
 
     my $hash = {};
 
@@ -81,6 +81,22 @@ sub to_hash {
         my $key = $params->[$i];
 
         $key =~ s/^openid\.//;
+
+        $hash->{$key} = $params->[$i + 1];
+    }
+
+    return $hash;
+}
+
+sub to_hash_prefixed {
+    my $self   = shift;
+
+    my $hash = {};
+
+    my $params = $self->params;
+
+    for (my $i = 0; $i < @$params; $i += 2) {
+        my $key = $params->[$i];
 
         $hash->{$key} = $params->[$i + 1];
     }
@@ -99,35 +115,6 @@ sub to_string {
         $key =~ s/^openid\.//;
         $string .=  $key . ':' . $params->[$i + 1] . "\n";
     }
-
-    return $string;
-}
-
-sub to_query {
-    my $self = shift;
-
-    my $string = '';
-
-    my $params = $self->params;
-    for (my $i = 0; $i < @$params; $i += 2) {
-        my $key   = _url_escape($params->[$i]);
-        my $value = _url_escape($params->[$i + 1]);
-
-        $string .= '&' unless $i == 0;
-        $string .= "$key=$value";
-    }
-
-    return $string;
-}
-
-sub _url_escape {
-    my $string = shift;
-
-    return unless $string;
-
-    my $pattern = 'A-Za-z0-9\-\.\_\~';
-
-    $string =~ s/([^$pattern])/sprintf('%%%02X',ord($1))/ge;
 
     return $string;
 }

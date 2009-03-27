@@ -1,4 +1,4 @@
-use Test::More tests => 15;
+use Test::More tests => 14;
 
 use Protocol::OpenID::Parameters;
 
@@ -24,7 +24,7 @@ $p->param(foo => 'bar');
 $p->param(baz => 'foo');
 
 is_deeply($p->to_hash, {'foo' => 'bar', 'baz' => 'foo'});
-is_deeply($p->to_hash, {'foo' => 'bar', 'baz' => 'foo'});
+is_deeply($p->to_hash_prefixed, {'openid.foo' => 'bar', 'openid.baz' => 'foo'});
 
 $p = Protocol::OpenID::Parameters->new('ns:http://specs.openid.net/auth/2.0');
 is($p->param('ns'), 'http://specs.openid.net/auth/2.0');
@@ -37,5 +37,3 @@ is($p->param('ns'), 'http://specs.openid.net/auth/2.0');
 is($p->param('error'), 'hello');
 
 is($p->to_string, "ns:http://specs.openid.net/auth/2.0\nerror:hello\n");
-
-is($p->to_query, "openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0&openid.error=hello");

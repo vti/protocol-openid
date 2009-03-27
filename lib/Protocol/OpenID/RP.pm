@@ -145,12 +145,12 @@ sub authenticate {
                         );
 
                         # Prepare url for redirection
-                        my $location =
-                          $discovery->op_endpoint . '?' . $params->to_query;
+                        my $location = $discovery->op_endpoint;
 
                         # Redirect to OP
                         $cb->(
-                            $self, $openid_identifier, 'redirect', $location
+                            $self, $openid_identifier, 'redirect', $location,
+                            $params->to_hash_prefixed
                         );
                     }
                 );
@@ -252,31 +252,32 @@ sub _associate {
             }
 
             # Check if it is unsuccessful response
-            if (   $params->{error}
-                && $params->{error_code} eq 'unsupported-type')
-            {
-                warn 'Association unsuccessful response' if $self->debug;
+            if ($params->{error}) {
 
                 # OP can suggest which session_type and assoc_type it supports
                 # and we can try again unless we have already tried
-                if (   $params->{session_type}
-                    && $params->{assoc_type}
-                    && !$self->_associate_counter)
-                {
-                    $association->session_type($params->{session_type});
-                    $association->assoc_type($params->{assoc_type});
+                if ($params->{error_code} eq 'unsupported-type') {
+                    warn 'Association unsuccessful response' if $self->debug;
 
-                    warn 'Try again to create association' if $self->debug;
+                    if (   $params->{session_type}
+                        && $params->{assoc_type}
+                        && !$self->_associate_counter)
+                    {
+                        $association->session_type($params->{session_type});
+                        $association->assoc_type($params->{assoc_type});
 
-                    $self->_associate_counter(1);
+                        warn 'Try again to create association' if $self->debug;
 
-                    return $self->_associate(
-                        $url => sub {
-                            my ($self, $result) = @_;
+                        $self->_associate_counter(1);
 
-                            return $cb->($self, $result);
-                        }
-                    );
+                        return $self->_associate(
+                            $url => sub {
+                                my ($self, $result) = @_;
+
+                                return $cb->($self, $result);
+                            }
+                        );
+                    }
                 }
 
                 # Nothing we can do
@@ -396,9 +397,6 @@ sub _authenticate_directly {
 
     my $params =
       {%{$args->{params}}, 'openid.mode' => 'check_authentication'};
-
-    use Data::Dumper;
-    warn Dumper $params;
 
     return $self->http_req_cb->(
         $self,

@@ -83,9 +83,6 @@ sub dh_consumer_public {
     # Hack
     $val =~ s/\s+//g;
 
-    # Another nasty hack
-    #$val =~ s/\+/%2B/g;
-
     return $val;
 }
 
