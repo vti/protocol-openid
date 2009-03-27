@@ -89,9 +89,9 @@ $rp->authenticate(
 $rp->clear;
 
 $rp->authenticate(
-    {   'openid.mode'      => 'id_res',
-        'openid.return_to' => 'http://foo.bar',
-        'openid.responce_nonce'     => '2000-12-12T12:12:12ZHELLO'
+    {   'openid.mode'           => 'id_res',
+        'openid.return_to'      => 'http://foo.bar',
+        'openid.response_nonce' => '2000-12-12T12:12:12ZHELLO'
     },
     sub {
         my ($self, $url, $action, $location) = @_;
@@ -105,7 +105,7 @@ $rp->clear;
 $rp->authenticate(
     {   'openid.mode'      => 'id_res',
         'openid.return_to' => 'http://foo.bar',
-        'openid.responce_nonce'     => '2029-12-12T12:12:12ZHELLO'
+        'openid.response_nonce'     => '2029-12-12T12:12:12ZHELLO'
     },
     sub {
         my ($self, $url, $action, $location) = @_;
@@ -119,7 +119,7 @@ $rp->clear;
 $rp->authenticate(
     {   'openid.mode'        => 'id_res',
         'openid.return_to'   => 'http://foo.bar',
-        'openid.responce_nonce'       => Protocol::OpenID::Nonce->new,
+        'openid.response_nonce'       => Protocol::OpenID::Nonce->new,
         'openid.op_endpoint' => 'http://myserverprovider.com/',
         'openid.claimed_id'  => 'http://user.myserverprovider.com/',
         'openid.identity'    => 'http://user.myserverprovider.com/',

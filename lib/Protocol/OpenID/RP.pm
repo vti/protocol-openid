@@ -105,43 +105,19 @@ sub authenticate {
     # From OP
     elsif (my $mode = $params->{'openid.mode'}) {
         if (grep { $_ eq $mode } (qw/setup_needed cancel error/)) {
-            $cb->($self, $openid_identifier, $mode);
+            return $cb->($self, $openid_identifier, $mode);
         }
         elsif ($mode eq 'id_res') {
 
             # Check return_to
-            unless ($params->{'openid.return_to'}
-                && $self->return_to eq $params->{'openid.return_to'})
-            {
-                $self->error('Wrong return_to');
-
-                return $cb->($self, undef, 'error');
-            }
+            return $cb->($self, undef, 'error')
+              unless $self->_return_to_is_valid(
+                      $params->{'openid.return_to'});
 
             # Check nonce
-            my $nonce = Protocol::OpenID::Nonce->new;
-
-            unless ($params->{'openid.response_nonce'}
-                && $nonce->parse($params->{'openid.response_nonce'}))
-            {
-                $self->error('Wrong nonce');
-                return $cb->($self, undef, 'error');
-            }
-
-            my $epoch = $nonce->epoch;
-            my $time  = time;
-
-            # Check if nonce isn't too far in the future (2 hours)
-            if ($epoch < $time - 3600 * 2) {
-                $self->error('Nonce is too old');
-                return $cb->($self, undef, 'error');
-            }
-
-            # Check if nonce isn't too old (2 hours)
-            if ($epoch > $time + 3600 * 2) {
-                $self->error('Nonce is in the future');
-                return $cb->($self, undef, 'error');
-            }
+            return $cb->($self, undef, 'error')
+              unless $self->_nonce_is_valid(
+                      $params->{'openid.response_nonce'});
 
             # Verify association
             if ($self->store) {
@@ -157,44 +133,18 @@ sub authenticate {
                         params =>
                           {%$params, 'openid.mode' => 'check_authentication'}
                     },
-                    sub {
-                        my ($self, $url, $args) = @_;
-
-                        my $status = $args->{status};
-                        my $body   = $args->{body};
-
-                        return $cb->($self, undef, 'error')
-                          unless $status == 200;
-
-                        my $params = Protocol::OpenID::Parameters->new($body);
-                        unless ($params->param('is_valid')) {
-                            $self->error('is_valid field is missing');
-                            return $cb->($self, undef, 'error');
-                        }
-
-                        unless ($params->param('is_valid') eq 'true') {
-                            $self->error('Not a valid user');
-                            return $cb->($self, undef, 'error');
-                        }
-
-                        if ($params->param('invalidate_handle')) {
-                            die 'SUPPORT ME!';
-                        }
-
-                        # Finally verified user
-                        return $cb->($self, undef, 'verified');
-                    }
+                    sub { return _authenticate_directly(@_, $cb); }
                 );
             }
         }
         else {
             $self->error('Unknown mode');
-            $cb->($self, undef, 'error');
+            return $cb->($self, undef, 'error');
         }
     }
     # Do nothing
     else {
-        $cb->($self, undef, 'null');
+        return $cb->($self, undef, 'null');
     }
 }
 
@@ -203,6 +153,76 @@ sub clear {
 
     $self->clear_error;
     $self->clear_discovery;
+}
+
+sub _return_to_is_valid {
+    my $self = shift;
+    my $param = shift;
+
+    unless ($param && $self->return_to eq $param) {
+        $self->error('Wrong return_to');
+
+        return 0;
+    }
+
+    return 1;
+}
+
+sub _nonce_is_valid {
+    my $self = shift;
+    my $param = shift;
+
+    my $nonce = Protocol::OpenID::Nonce->new;
+
+    unless ($param && $nonce->parse($param)) {
+        $self->error('Wrong nonce');
+        return 0;
+    }
+
+    my $epoch = $nonce->epoch;
+    my $time  = time;
+
+    # Check if nonce isn't too far in the future (2 hours)
+    if ($epoch < $time - 3600 * 2) {
+        $self->error('Nonce is too old');
+        return 0;
+    }
+
+    # Check if nonce isn't too old (2 hours)
+    if ($epoch > $time + 3600 * 2) {
+        $self->error('Nonce is in the future');
+        return 0;
+    }
+
+    return 1;
+}
+
+sub _authenticate_directly {
+    my ($self, $url, $args, $cb) = @_;
+
+    my $status = $args->{status};
+    my $body   = $args->{body};
+
+    return $cb->($self, undef, 'error')
+      unless $status == 200;
+
+    my $params = Protocol::OpenID::Parameters->new($body);
+    unless ($params->param('is_valid')) {
+        $self->error('is_valid field is missing');
+        return $cb->($self, undef, 'error');
+    }
+
+    unless ($params->param('is_valid') eq 'true') {
+        $self->error('Not a valid user');
+        return $cb->($self, undef, 'error');
+    }
+
+    if ($params->param('invalidate_handle')) {
+        die 'SUPPORT ME!';
+    }
+
+    # Finally verified user
+    return $cb->($self, undef, 'verified');
 }
 
 1;
