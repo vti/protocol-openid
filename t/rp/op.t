@@ -1,4 +1,4 @@
-use Test::More tests => 15;
+use Test::More tests => 16;
 
 use_ok('Protocol::OpenID::RP');
 
@@ -129,6 +129,7 @@ $rp->authenticate(
     sub {
         my ($self, $url, $action, $location) = @_;
 
+        is($url, 'http://user.myserverprovider.com/');
         is($action, 'verified');
     }
 );

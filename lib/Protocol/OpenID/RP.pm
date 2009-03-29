@@ -135,21 +135,14 @@ sub authenticate {
                         my $params = Protocol::OpenID::Parameters->new(
                             ns         => $discovery->protocol_version,
                             mode       => 'checkid_setup',
+                            claimed_id => $discovery->claimed_identifier,
                             identity   => $discovery->op_local_identifier,
 
                             assoc_handle => $assoc_handle,
-                            return_to => $self->return_to,
+                            return_to    => $self->return_to,
 
                             #realm        => $self->realm
                         );
-
-                        $params->param(
-                            claimed_id => $discovery->claimed_identifier)
-                          if $discovery->protocol_version eq
-                              $Protocol::OpenID::Discovery::VERSION_2_0;
-
-                        use Data::Dumper;
-                        warn Dumper $params;
 
                         # Prepare url for redirection
                         my $location = $discovery->op_endpoint;
@@ -197,6 +190,11 @@ sub authenticate {
             }
 
             my $op_endpoint = $params->{'openid.op_endpoint'};
+
+            my $discovery =
+              Protocol::OpenID::Discovery->new(
+                claimed_identifier => $params->{'openid.claimed_id'});
+            $self->discovery($discovery);
 
             # Verifying Directly with the OpenID Provider
             return $self->_authenticate_directly($op_endpoint,
@@ -425,7 +423,7 @@ sub _authenticate_directly {
         $self,
         $url => {method => 'POST', params => $params},
         sub {
-            my ($self, $url, $args) = @_;
+            my ($self, $op_endpoint, $args) = @_;
 
             my $status = $args->{status};
             my $body   = $args->{body};
@@ -442,7 +440,7 @@ sub _authenticate_directly {
 
             if ($params->param('is_valid') eq 'true') {
                 # Finally verified user
-                return $cb->($self, undef, 'verified');
+                return $cb->($self, $self->discovery->claimed_identifier, 'verified');
             }
 
             $self->error('Not a valid user');
