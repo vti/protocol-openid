@@ -1,21 +1,22 @@
-use Test::More tests => 16;
+use Test::More tests => 21;
 
 use_ok('Protocol::OpenID::RP');
 
+use Protocol::OpenID::Discovery;
 use Protocol::OpenID::Nonce;
 
 my $rp = Protocol::OpenID::RP->new(
-    return_to => 'http://foo.bar',
+    return_to   => 'http://foo.bar',
     http_req_cb => sub {
         my ($self, $url, $args, $cb) = @_;
 
-        my $status = 200;
+        my $status      = 200;
         my $res_headers = {};
         my $body;
 
         if ($url eq 'http://myserverprovider.com/') {
             my $nonce = Protocol::OpenID::Nonce->new;
-            $body =<<"";
+            $body = <<"";
 is_valid:true
 
         }
@@ -26,7 +27,9 @@ is_valid:true
 );
 
 $rp->authenticate(
-    {'openid.mode' => 'setup_needed'},
+    {   'openid.ns'   => $Protocol::OpenID::Discovery::VERSION_2_0,
+        'openid.mode' => 'setup_needed'
+    },
     sub {
         my ($self, $url, $action, $location) = @_;
 
@@ -36,38 +39,67 @@ $rp->authenticate(
 $rp->clear;
 
 $rp->authenticate(
-    {'openid.mode' => 'cancel'},
-    sub {
-        my ($self, $url, $action, $location) = @_;
-
-        is($action, 'cancel');
-    }
-);
-$rp->clear;
-
-$rp->authenticate(
-    {'openid.mode' => 'cancel'},
-    sub {
-        my ($self, $url, $action, $location) = @_;
-
-        is($action, 'cancel');
-    }
-);
-$rp->clear;
-
-$rp->authenticate(
-    {'openid.mode' => 'id_res'},
+    {   'openid.ns'   => $Protocol::OpenID::Discovery::VERSION_2_0,
+        'openid.mode' => 'user_setup_url'
+    },
     sub {
         my ($self, $url, $action, $location) = @_;
 
         is($action, 'error');
-        is($self->error, 'Wrong return_to');
     }
 );
 $rp->clear;
 
 $rp->authenticate(
-    {'openid.mode' => 'id_res', 'openid.return_to' => 'http://foo.ba'},
+    {'openid.mode' => 'user_setup_url'},
+    sub {
+        my ($self, $url, $action, $location) = @_;
+
+        is($action, 'user_setup_url');
+    }
+);
+$rp->clear;
+
+$rp->authenticate(
+    {   'openid.ns'   => $Protocol::OpenID::Discovery::VERSION_1_0,
+        'openid.mode' => 'user_setup_url'
+    },
+    sub {
+        my ($self, $url, $action, $location) = @_;
+
+        is($action, 'user_setup_url');
+    }
+);
+$rp->clear;
+
+$rp->authenticate(
+    {   'openid.ns'   => $Protocol::OpenID::Discovery::VERSION_2_0,
+        'openid.mode' => 'cancel'
+    },
+    sub {
+        my ($self, $url, $action, $location) = @_;
+
+        is($action, 'cancel');
+    }
+);
+$rp->clear;
+
+$rp->authenticate(
+    {   'openid.ns'   => $Protocol::OpenID::Discovery::VERSION_2_0,
+        'openid.mode' => 'cancel'
+    },
+    sub {
+        my ($self, $url, $action, $location) = @_;
+
+        is($action, 'cancel');
+    }
+);
+$rp->clear;
+
+$rp->authenticate(
+    {   'openid.ns'   => $Protocol::OpenID::Discovery::VERSION_2_0,
+        'openid.mode' => 'id_res'
+    },
     sub {
         my ($self, $url, $action, $location) = @_;
 
@@ -78,7 +110,39 @@ $rp->authenticate(
 $rp->clear;
 
 $rp->authenticate(
-    {'openid.mode' => 'id_res', 'openid.return_to' => 'http://foo.bar'},
+    {   'openid.ns'        => $Protocol::OpenID::Discovery::VERSION_2_0,
+        'openid.mode'      => 'id_res',
+        'openid.return_to' => 'http://foo.ba'
+    },
+    sub {
+        my ($self, $url, $action, $location) = @_;
+
+        is($action,      'error');
+        is($self->error, 'Wrong return_to');
+    }
+);
+$rp->clear;
+
+$rp->authenticate(
+    {   'openid.ns'        => $Protocol::OpenID::Discovery::VERSION_2_0,
+        'openid.mode'      => 'id_res',
+        'openid.return_to' => 'http://foo.bar'
+    },
+    sub {
+        my ($self, $url, $action, $location) = @_;
+
+        is($action,      'error');
+        is($self->error, 'Wrong identity');
+    }
+);
+$rp->clear;
+
+$rp->authenticate(
+    {   'openid.ns'        => $Protocol::OpenID::Discovery::VERSION_2_0,
+        'openid.mode'      => 'id_res',
+        'openid.return_to' => 'http://foo.bar',
+        'openid.identity'       => 'http://user.myserverprovider.com/',
+    },
     sub {
         my ($self, $url, $action, $location) = @_;
 
@@ -89,8 +153,10 @@ $rp->authenticate(
 $rp->clear;
 
 $rp->authenticate(
-    {   'openid.mode'           => 'id_res',
+    {   'openid.ns'             => $Protocol::OpenID::Discovery::VERSION_2_0,
+        'openid.mode'           => 'id_res',
         'openid.return_to'      => 'http://foo.bar',
+        'openid.identity'       => 'http://user.myserverprovider.com/',
         'openid.response_nonce' => '2000-12-12T12:12:12ZHELLO'
     },
     sub {
@@ -103,9 +169,11 @@ $rp->authenticate(
 $rp->clear;
 
 $rp->authenticate(
-    {   'openid.mode'      => 'id_res',
-        'openid.return_to' => 'http://foo.bar',
-        'openid.response_nonce'     => '2029-12-12T12:12:12ZHELLO'
+    {   'openid.ns'             => $Protocol::OpenID::Discovery::VERSION_2_0,
+        'openid.mode'           => 'id_res',
+        'openid.return_to'      => 'http://foo.bar',
+        'openid.identity'       => 'http://user.myserverprovider.com/',
+        'openid.response_nonce' => '2029-12-12T12:12:12ZHELLO'
     },
     sub {
         my ($self, $url, $action, $location) = @_;
@@ -117,19 +185,20 @@ $rp->authenticate(
 $rp->clear;
 
 $rp->authenticate(
-    {   'openid.mode'        => 'id_res',
-        'openid.return_to'   => 'http://foo.bar',
-        'openid.response_nonce'       => Protocol::OpenID::Nonce->new,
-        'openid.op_endpoint' => 'http://myserverprovider.com/',
-        'openid.claimed_id'  => 'http://user.myserverprovider.com/',
-        'openid.identity'    => 'http://user.myserverprovider.com/',
-        'openid.signed'      => 'foo',
-        'openid.sig'         => 'bar'
+    {   'openid.ns'             => $Protocol::OpenID::Discovery::VERSION_2_0,
+        'openid.mode'           => 'id_res',
+        'openid.return_to'      => 'http://foo.bar',
+        'openid.response_nonce' => Protocol::OpenID::Nonce->new,
+        'openid.op_endpoint'    => 'http://myserverprovider.com/',
+        'openid.claimed_id'     => 'http://user.myserverprovider.com/',
+        'openid.identity'       => 'http://user.myserverprovider.com/',
+        'openid.signed'         => 'foo',
+        'openid.sig'            => 'bar'
     },
     sub {
         my ($self, $url, $action, $location) = @_;
 
-        is($url, 'http://user.myserverprovider.com/');
+        is($url,    'http://user.myserverprovider.com/');
         is($action, 'verified');
     }
 );

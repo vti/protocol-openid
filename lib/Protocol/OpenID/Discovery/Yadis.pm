@@ -12,6 +12,7 @@ sub hook {
     my $y = Protocol::Yadis->new(http_req_cb => $rp->http_req_cb);
 
     my $url = $identifier->to_string;
+    warn "Discovering Yadis Document at '$url'" if $rp->debug;
 
     $y->discover(
         $url,
@@ -64,7 +65,7 @@ sub hook {
                         warn 'Found OP Local Identifier' if $rp->debug;
                         last;
                     }
-                    elsif ($type =~ m/^http:\/\/openid\.net\/server\/1\.(0|1)$/) {
+                    elsif ($type =~ m/^http:\/\/openid\.net\/signon\/1\.(0|1)$/) {
                         # Optional OP Local Identifier
                         my $op_local_identifier = $url;
                         if (my $local_id =
@@ -82,7 +83,7 @@ sub hook {
                             : $Protocol::OpenID::Discovery::VERSION_1_0
                         );
 
-                        warn 'Found OpenID 1.x Identifier' if $rp->debug;
+                        warn "Found OpenID 1.$1 Identifier" if $rp->debug;
                         last;
                     }
                 }

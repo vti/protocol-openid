@@ -1,4 +1,4 @@
-use Test::More tests => 38;
+use Test::More tests => 41;
 
 use_ok('Protocol::OpenID::RP');
 
@@ -47,7 +47,7 @@ my $rp = Protocol::OpenID::RP->new(
    xmlns:openid="http://openid.net/xmlns/1.0">
  <XRD>
   <Service xmlns="xri://$xrd*($v*2.0)">
-    <Type>http://openid.net/server/1.0</Type>
+    <Type>http://openid.net/signon/1.0</Type>
     <URI>https://www.exampleprovider.com/endpoint/</URI>
   </Service>
  </XRD>
@@ -62,7 +62,7 @@ my $rp = Protocol::OpenID::RP->new(
    xmlns:openid="http://openid.net/xmlns/1.0">
  <XRD>
   <Service xmlns="xri://$xrd*($v*2.0)">
-    <Type>http://openid.net/server/1.0</Type>
+    <Type>http://openid.net/signon/1.0</Type>
     <URI>https://www.exampleprovider.com/endpoint/</URI>
     <openid:Delegate>https://other.exampleprovider.com/</openid:Delegate>
   </Service>
@@ -78,7 +78,7 @@ my $rp = Protocol::OpenID::RP->new(
    xmlns:openid="http://openid.net/xmlns/1.0">
  <XRD>
   <Service xmlns="xri://$xrd*($v*2.0)">
-    <Type>http://openid.net/server/1.1</Type>
+    <Type>http://openid.net/signon/1.1</Type>
     <URI>https://www.exampleprovider.com/endpoint/</URI>
   </Service>
  </XRD>
@@ -93,7 +93,7 @@ my $rp = Protocol::OpenID::RP->new(
    xmlns:openid="http://openid.net/xmlns/1.0">
  <XRD>
   <Service xmlns="xri://$xrd*($v*2.0)">
-    <Type>http://openid.net/server/1.1</Type>
+    <Type>http://openid.net/signon/1.1</Type>
     <URI>https://www.exampleprovider.com/endpoint/</URI>
     <openid:Delegate>https://other.exampleprovider.com/</openid:Delegate>
   </Service>
@@ -110,7 +110,7 @@ my $rp = Protocol::OpenID::RP->new(
  <XRD>
   <Service xmlns="xri://$xrd*($v*2.0)">
     <Type>http://specs.openid.net/auth/2.0/signon</Type>
-    <Type>http://openid.net/server/1.1</Type>
+    <Type>http://openid.net/signon/1.1</Type>
     <URI>https://www.exampleprovider.com/endpoint/</URI>
     <LocalID>https://exampleuser.exampleprovider.com/</LocalID>
     <openid:Delegate>https://other.exampleprovider.com/</openid:Delegate>
@@ -148,6 +148,13 @@ my $rp = Protocol::OpenID::RP->new(
 <head>
     <link rel="openid.server" href="https://www.exampleprovider.com/" />
     <link rel="openid.delegate" href="https://html.exampleprovider.com/" />
+</head>
+
+        }
+        elsif ($url eq 'http://1.1-with-query.html.exampleprovider.com/') {
+            $body = <<'';
+<head>
+    <link rel="openid.server" href="https://www.exampleprovider.com/?foo=bar" />
 </head>
 
         }
@@ -245,11 +252,9 @@ $rp->authenticate(
 
         is_deeply(
             $params,
-            {   'openid.ns'   => $Protocol::OpenID::Discovery::VERSION_1_0,
-                'openid.mode' => 'checkid_setup',
-                'openid.claimed_id' => 'http://1.0.exampleprovider.com/',
-                'openid.identity'   => 'http://1.0.exampleprovider.com/',
-                'openid.return_to'  => 'http://foo.bar'
+            {   'openid.mode'      => 'checkid_setup',
+                'openid.identity'  => 'http://1.0.exampleprovider.com/',
+                'openid.return_to' => 'http://foo.bar'
             }
         );
     }
@@ -265,11 +270,31 @@ $rp->authenticate(
 
         is($location, 'https://www.exampleprovider.com/endpoint/');
 
-        is_deeply($params,
-            {   'openid.ns'   => $Protocol::OpenID::Discovery::VERSION_1_1,
-                'openid.mode' => 'checkid_setup',
-                'openid.claimed_id' => 'http://1.1.exampleprovider.com/',
-                'openid.identity' => 'http://1.1.exampleprovider.com/',
+        is_deeply(
+            $params,
+            {   'openid.mode'      => 'checkid_setup',
+                'openid.identity'  => 'http://1.1.exampleprovider.com/',
+                'openid.return_to' => 'http://foo.bar'
+            }
+        );
+    }
+);
+$rp->clear;
+
+$rp->authenticate(
+    {openid_identifier => '1.1-with-query.html.exampleprovider.com'},
+    sub {
+        my ($self, $url, $action, $location, $params) = @_;
+
+        is($action, 'redirect');
+
+        is($location, 'https://www.exampleprovider.com/?foo=bar');
+
+        is_deeply(
+            $params,
+            {   'openid.mode' => 'checkid_setup',
+                'openid.identity' =>
+                  'http://1.1-with-query.html.exampleprovider.com/',
                 'openid.return_to' => 'http://foo.bar'
             }
         );
@@ -288,12 +313,8 @@ $rp->authenticate(
 
         is_deeply(
             $params,
-            {   'openid.ns'   => $Protocol::OpenID::Discovery::VERSION_1_0,
-                'openid.mode' => 'checkid_setup',
-                'openid.claimed_id' =>
-                  'http://1.0-with-delegate.exampleprovider.com/',
-                'openid.identity' =>
-                  'https://other.exampleprovider.com/',
+            {   'openid.mode'      => 'checkid_setup',
+                'openid.identity'  => 'https://other.exampleprovider.com/',
                 'openid.return_to' => 'http://foo.bar'
             }
         );
@@ -310,13 +331,10 @@ $rp->authenticate(
 
         is($location, 'https://www.exampleprovider.com/endpoint/');
 
-        is_deeply($params,
-            {   'openid.ns'   => $Protocol::OpenID::Discovery::VERSION_1_1,
-                'openid.mode' => 'checkid_setup',
-                'openid.claimed_id' =>
-                  'http://1.1-with-delegate.exampleprovider.com/',
-                'openid.identity' =>
-                  'https://other.exampleprovider.com/',
+        is_deeply(
+            $params,
+            {   'openid.mode'      => 'checkid_setup',
+                'openid.identity'  => 'https://other.exampleprovider.com/',
                 'openid.return_to' => 'http://foo.bar'
             }
         );
@@ -421,9 +439,7 @@ $rp->authenticate(
         is($location, 'https://www.exampleprovider.com/');
 
         is_deeply($params,
-            {   'openid.ns'         => $Protocol::OpenID::Discovery::VERSION_1_1,
-                'openid.mode'       => 'checkid_setup',
-                'openid.claimed_id' => 'http://1.1.html.exampleprovider.com/',
+            {   'openid.mode'       => 'checkid_setup',
                 'openid.identity'   => 'https://html.exampleprovider.com/',
                 'openid.return_to'  => 'http://foo.bar'
             }
@@ -442,9 +458,7 @@ $rp->authenticate(
         is($location, 'https://www.exampleprovider.com/');
 
         is_deeply($params,
-            {   'openid.ns'         => 'http://openid.net/signon/1.1',
-                'openid.mode'       => 'checkid_setup',
-                'openid.claimed_id' => 'http://1.1.html.exampleprovider.com/',
+            {   'openid.mode'       => 'checkid_setup',
                 'openid.identity'   => 'https://html.exampleprovider.com/',
                 'openid.return_to'  => 'http://foo.bar'
             }

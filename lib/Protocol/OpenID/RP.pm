@@ -133,16 +133,25 @@ sub authenticate {
 
                         # Prepare params
                         my $params = Protocol::OpenID::Parameters->new(
-                            ns         => $discovery->protocol_version,
                             mode       => 'checkid_setup',
-                            claimed_id => $discovery->claimed_identifier,
                             identity   => $discovery->op_local_identifier,
 
                             assoc_handle => $assoc_handle,
                             return_to    => $self->return_to,
 
+                            # TODO
+                            #trust_root        => $self->realm
                             #realm        => $self->realm
                         );
+
+                        if ($discovery->protocol_version eq
+                            $Protocol::OpenID::Discovery::VERSION_2_0)
+                        {
+                            $params->param(
+                                ns => $discovery->protocol_version);
+                            $params->param(
+                                claimed_id => $discovery->claimed_identifier);
+                        }
 
                         # Prepare url for redirection
                         my $location = $discovery->op_endpoint;
@@ -160,7 +169,19 @@ sub authenticate {
 
     # From OP
     elsif (my $mode = $params->{'openid.mode'}) {
-        if (grep { $_ eq $mode } (qw/user_setup_url setup_needed cancel error/)) {
+        my $ns = $params->{'openid.ns'};
+        if (grep { $_ eq $mode } (qw/cancel error/)) {
+            return $cb->($self, $openid_identifier, $mode);
+        }
+        elsif ($ns
+            && $ns   eq $Protocol::OpenID::Discovery::VERSION_2_0
+            && $mode eq 'setup_needed')
+        {
+            return $cb->($self, $openid_identifier, $mode);
+        }
+        elsif ((!$ns || $ns ne $Protocol::OpenID::Discovery::VERSION_2_0)
+            && $mode eq 'user_setup_url')
+        {
             return $cb->($self, $openid_identifier, $mode);
         }
         elsif ($mode eq 'id_res') {
@@ -168,14 +189,23 @@ sub authenticate {
             # Check return_to
             return $cb->($self, undef, 'error')
               unless $self->_return_to_is_valid(
-                      $params->{'openid.return_to'});
+                $params->{'openid.return_to'});
 
-            # Check Discovered Information
+            # TODO: Check Discovered Information
+            unless ($params->{'openid.identity'}) {
+                $self->error('Wrong identity');
+                return $cb->($self, undef, 'error');
+            }
+
+            my $ns = $params->{'openid.ns'}
+              || $Protocol::OpenID::Discovery::VERSION_1_1;
 
             # Check nonce
-            return $cb->($self, undef, 'error')
-              unless $self->_nonce_is_valid(
-                      $params->{'openid.response_nonce'});
+            if ($ns eq $Protocol::OpenID::Discovery::VERSION_2_0) {
+                return $cb->($self, undef, 'error')
+                  unless $self->_nonce_is_valid(
+                    $params->{'openid.response_nonce'});
+            }
 
             if (my $handle = $params->{'openid.invalidate_handle'}) {
                 $self->remove_cb($handle);
@@ -189,11 +219,42 @@ sub authenticate {
                 }
             }
 
-            my $op_endpoint = $params->{'openid.op_endpoint'};
+            my $op_endpoint;
 
-            my $discovery =
-              Protocol::OpenID::Discovery->new(
-                claimed_identifier => $params->{'openid.claimed_id'});
+            if ($ns eq $Protocol::OpenID::Discovery::VERSION_2_0) {
+                $op_endpoint = $params->{'openid.op_endpoint'};
+            }
+
+            # Forced to make a discovery again :(
+            else {
+                my $id = Protocol::OpenID::Identifier->new(
+                    $params->{'openid.identity'});
+
+                $self->clear_discovery;
+
+                return $self->call(
+                    discover => [$self, $id] => sub {
+                        my ($ctl, $args, $is_done) = @_;
+
+                        # Return if discovery was unsuccessful
+                        return $cb->($self, undef, 'error')
+                          unless $self->discovery;
+
+                        $op_endpoint = $self->discovery->op_endpoint;
+
+                        # Verifying Directly with the OpenID Provider
+                        return $self->_authenticate_directly($op_endpoint,
+                            {params => $params}, $cb);
+                    }
+                );
+            }
+
+            my $discovery = Protocol::OpenID::Discovery->new(
+                claimed_identifier => $ns eq
+                  $Protocol::OpenID::Discovery::VERSION_2_0
+                ? $params->{'openid.claimed_id'}
+                : $params->{'openid.identity'}
+            );
             $self->discovery($discovery);
 
             # Verifying Directly with the OpenID Provider

@@ -7,6 +7,7 @@ sub hook {
     my ($rp,  $identifier) = @$args;
 
     my $url = $identifier->to_string;
+    warn "Discovering HTML Document at '$url'" if $rp->debug;
 
     $rp->http_req_cb->(
         $rp => $url => {
