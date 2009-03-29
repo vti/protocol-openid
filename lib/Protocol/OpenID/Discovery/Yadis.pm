@@ -64,9 +64,16 @@ sub hook {
                     }
                 }
 
-                $rp->discovery($discovery);
+                if ($discovery) {
+                    $rp->discovery($discovery);
 
-                $ctl->done;
+                    $ctl->done;
+                }
+                else {
+                    $rp->error('No services were found');
+
+                    $ctl->next;
+                }
             }
 
             # No Yadis Document was found, thus call the next hook

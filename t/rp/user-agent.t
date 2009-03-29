@@ -1,4 +1,4 @@
-use Test::More tests => 13;
+use Test::More tests => 14;
 
 use_ok('Protocol::OpenID::RP');
 
@@ -11,7 +11,18 @@ my $rp = Protocol::OpenID::RP->new(
         my $res_headers = {};
         my $body;
 
-        if ($url eq 'http://exampleprovider.com/') {
+        if ($url eq 'http://noservices.exampleprovider.com/') {
+            $res_headers = {'Content-Type' => 'application/xrds+xml'};
+            $body = <<'';
+<?xml version="1.0" encoding="UTF-8"?>
+<xrds:XRDS xmlns:xrds="xri://$xrds" xmlns="xri://$xrd*($v*2.0)"
+   xmlns:openid="http://openid.net/xmlns/1.0">
+ <XRD>
+ </XRD>
+</xrds:XRDS>
+
+        }
+        elsif ($url eq 'http://exampleprovider.com/') {
             $res_headers = {'Content-Type' => 'application/xrds+xml'};
             $body = <<'';
 <?xml version="1.0" encoding="UTF-8"?>
@@ -62,6 +73,17 @@ my $rp = Protocol::OpenID::RP->new(
               {status => $status, headers => $res_headers, body => $body});
     }
 );
+
+$rp->authenticate(
+    {openid_identifier => 'noservices.exampleprovider.com'},
+    sub {
+        my ($self, $url, $action, $location, $params) = @_;
+
+        is($action, 'error');
+    }
+);
+
+$rp->clear;
 
 $rp->authenticate(
     {openid_identifier => 'foo.exampleprovider.com'},
