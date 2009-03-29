@@ -26,7 +26,7 @@ sub hook {
 
                 # Find OpenID services
                 my @openid_services =
-                  grep { $_->Type->[0]->content =~ m/specs\.openid\.net/ }
+                  grep { $_->Type->[0]->content =~ m/openid\.net/ }
                   @{$document->services};
 
                 my $discovery;
@@ -40,6 +40,7 @@ sub hook {
                             op_identifier => $url
                         );
 
+                        warn 'Found OP Identifier' if $rp->debug;
                         last;
                     }
 
@@ -60,17 +61,41 @@ sub hook {
                             op_local_identifier => $op_local_identifier
                         );
 
+                        warn 'Found OP Local Identifier' if $rp->debug;
+                        last;
+                    }
+                    elsif ($type =~ m/^http:\/\/openid\.net\/server\/1\.(0|1)$/) {
+                        # Optional OP Local Identifier
+                        my $op_local_identifier = $url;
+                        if (my $local_id =
+                            $service->element('openid:Delegate')->[0])
+                        {
+                            $op_local_identifier = $local_id->content;
+                        }
+
+                        $discovery = Protocol::OpenID::Discovery->new(
+                            op_endpoint        => $service->URI->[0]->content,
+                            claimed_identifier => $url,
+                            op_local_identifier => $op_local_identifier,
+                            protocol_version    => $1 == 1
+                            ? $Protocol::OpenID::Discovery::VERSION_1_1
+                            : $Protocol::OpenID::Discovery::VERSION_1_0
+                        );
+
+                        warn 'Found OpenID 1.x Identifier' if $rp->debug;
                         last;
                     }
                 }
 
                 if ($discovery) {
                     $rp->discovery($discovery);
+                    warn 'Found Discovery Information' if $rp->debug;
 
                     $ctl->done;
                 }
                 else {
                     $rp->error('No services were found');
+                    warn $rp->error if $rp->debug;
 
                     $ctl->next;
                 }

@@ -133,9 +133,8 @@ sub authenticate {
 
                         # Prepare params
                         my $params = Protocol::OpenID::Parameters->new(
-                            ns         => 'http://specs.openid.net/auth/2.0',
+                            ns         => $discovery->protocol_version,
                             mode       => 'checkid_setup',
-                            claimed_id => $discovery->claimed_identifier,
                             identity   => $discovery->op_local_identifier,
 
                             assoc_handle => $assoc_handle,
@@ -143,6 +142,14 @@ sub authenticate {
 
                             #realm        => $self->realm
                         );
+
+                        $params->param(
+                            claimed_id => $discovery->claimed_identifier)
+                          if $discovery->protocol_version eq
+                              $Protocol::OpenID::Discovery::VERSION_2_0;
+
+                        use Data::Dumper;
+                        warn Dumper $params;
 
                         # Prepare url for redirection
                         my $location = $discovery->op_endpoint;
@@ -160,7 +167,7 @@ sub authenticate {
 
     # From OP
     elsif (my $mode = $params->{'openid.mode'}) {
-        if (grep { $_ eq $mode } (qw/setup_needed cancel error/)) {
+        if (grep { $_ eq $mode } (qw/user_setup_url setup_needed cancel error/)) {
             return $cb->($self, $openid_identifier, $mode);
         }
         elsif ($mode eq 'id_res') {
@@ -320,7 +327,7 @@ sub _associate {
 
                 # There are different fields returned when using/not using
                 # encyption
-                if ($association->is_encrypted) {
+                if ($association->is_encrypted($self->discovery)) {
                     unless ($params->{dh_server_public}
                         && $params->{enc_mac_key})
                     {

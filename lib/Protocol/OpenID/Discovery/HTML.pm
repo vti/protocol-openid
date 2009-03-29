@@ -41,22 +41,37 @@ sub _http_res_on {
     my $provider;
     my $local_id;
 
+    my $version = $Protocol::OpenID::Discovery::VERSION_2_0;
+
     my $tags = _html_tag(\$head);
     foreach my $tag (@$tags) {
         next unless $tag->{name} eq 'link';
 
+        #use Data::Dumper;
+        #warn Dumper $tag;
+
+        # TODO: this shouldn't be a hash, there could be rel="openid2.provider"
+        # and rel="openid.server" at the same time
         my $attrs = $tag->{attrs};
         next
           unless %$attrs
               && $attrs->{'rel'}
               && $attrs->{'rel'}
-              =~ m/^(openid2\.provider|openid2\.local_id)$/i;
+              =~ m/^(openid2\.provider|openid2\.local_id|openid\.server|openid\.delegate)$/i;
 
         if ($1 eq 'openid2.provider' && !$provider) {
             $provider = $attrs->{href};
         }
         elsif ($1 eq 'openid2.local_id' && !$local_id) {
             $local_id = $attrs->{href};
+        }
+        elsif ($1 eq 'openid.server' && !$provider) {
+            $provider = $attrs->{href};
+            $version = $Protocol::OpenID::Discovery::VERSION_1_1;
+        }
+        elsif ($1 eq 'openid.delegate' && !$local_id) {
+            $local_id = $attrs->{href};
+            $version = $Protocol::OpenID::Discovery::VERSION_1_1;
         }
 
         # No need to proceed if we have both
@@ -69,7 +84,8 @@ sub _http_res_on {
     my $discovery = Protocol::OpenID::Discovery->new(
         op_endpoint         => $provider,
         claimed_identifier  => $url,
-        op_local_identifier => $local_id || $url
+        op_local_identifier => $local_id || $url,
+        protocol_version    => $version
     );
     $rp->discovery($discovery);
 
