@@ -208,7 +208,8 @@ sub authenticate {
             }
 
             if (my $handle = $params->{'openid.invalidate_handle'}) {
-                $self->remove_cb($handle);
+                #TODO
+                #$self->remove_cb($handle);
             }
             else {
 
@@ -489,8 +490,10 @@ sub _authenticate_directly {
             my $status = $args->{status};
             my $body   = $args->{body};
 
-            return $cb->($self, undef, 'error')
-              unless $status == 200;
+            unless ($status && $status == 200) {
+                $self->error('Wrong provider direct authentication response status');
+                return $cb->($self, undef, 'error');
+            }
 
             my $params = Protocol::OpenID::Parameters->new($body);
             unless ($params->param('is_valid')) {

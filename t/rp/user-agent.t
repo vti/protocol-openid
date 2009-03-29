@@ -1,4 +1,4 @@
-use Test::More tests => 41;
+use Test::More tests => 44;
 
 use_ok('Protocol::OpenID::RP');
 
@@ -176,6 +176,13 @@ my $rp = Protocol::OpenID::RP->new(
             $body = <<'';
 <head>
     <link rel="openid.server" rel="openid2.provider" href="https://www.exampleprovider.com/" />
+</head>
+
+        }
+        elsif ($url eq 'http://html4.exampleprovider.com/') {
+            $body = <<'';
+<head>
+    <link rel="openid2.provider openid.server" href="https://www.exampleprovider.com/" />
 </head>
 
         }
@@ -421,6 +428,28 @@ $rp->authenticate(
                 'openid.mode'       => 'checkid_setup',
                 'openid.claimed_id' => 'http://html3.exampleprovider.com/',
                 'openid.identity'   => 'http://html3.exampleprovider.com/',
+                'openid.return_to'  => 'http://foo.bar'
+            }
+        );
+    }
+);
+
+$rp->clear;
+
+$rp->authenticate(
+    {openid_identifier => 'html4.exampleprovider.com'},
+    sub {
+        my ($self, $url, $action, $location, $params) = @_;
+
+        is($action, 'redirect');
+
+        is($location, 'https://www.exampleprovider.com/');
+
+        is_deeply($params,
+            {   'openid.ns'         => 'http://specs.openid.net/auth/2.0',
+                'openid.mode'       => 'checkid_setup',
+                'openid.claimed_id' => 'http://html4.exampleprovider.com/',
+                'openid.identity'   => 'http://html4.exampleprovider.com/',
                 'openid.return_to'  => 'http://foo.bar'
             }
         );

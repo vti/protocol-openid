@@ -51,28 +51,26 @@ sub _http_res_on {
         #use Data::Dumper;
         #warn Dumper $tag;
 
-        # TODO: this shouldn't be a hash, there could be rel="openid2.provider"
-        # and rel="openid.server" at the same time
         my $attrs = $tag->{attrs};
-        next
-          unless %$attrs
-              && $attrs->{'rel'}
-              && $attrs->{'rel'}
-              =~ m/^(openid2\.provider|openid2\.local_id|openid\.server|openid\.delegate)$/i;
+        next unless %$attrs && $attrs->{'rel'};
 
-        if ($1 eq 'openid2.provider' && !$provider) {
-            $provider = $attrs->{href};
-        }
-        elsif ($1 eq 'openid2.local_id' && !$local_id) {
-            $local_id = $attrs->{href};
-        }
-        elsif ($1 eq 'openid.server' && !$provider) {
-            $provider = $attrs->{href};
-            $version = $Protocol::OpenID::Discovery::VERSION_1_1;
-        }
-        elsif ($1 eq 'openid.delegate' && !$local_id) {
-            $local_id = $attrs->{href};
-            $version = $Protocol::OpenID::Discovery::VERSION_1_1;
+        my @rels = split(' ', $attrs->{rel});
+
+        foreach my $rel (@rels) {
+            if ($rel eq 'openid2.provider' && !$provider) {
+                $provider = $attrs->{href};
+            }
+            elsif ($rel eq 'openid2.local_id' && !$local_id) {
+                $local_id = $attrs->{href};
+            }
+            elsif ($rel eq 'openid.server' && !$provider) {
+                $provider = $attrs->{href};
+                $version = $Protocol::OpenID::Discovery::VERSION_1_1;
+            }
+            elsif ($rel eq 'openid.delegate' && !$local_id) {
+                $local_id = $attrs->{href};
+                $version = $Protocol::OpenID::Discovery::VERSION_1_1;
+            }
         }
 
         # No need to proceed if we have both
