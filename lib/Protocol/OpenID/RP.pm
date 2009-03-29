@@ -126,7 +126,7 @@ sub authenticate {
                         elsif ($result eq 'skip') {
                             warn 'Skipping association for various reasons' if $self->debug;
                         }
-                        # Give up on association
+                        # Give up on association, but don't fail, it is OPTIONAL
                         else {
                             warn 'Association failed: ' . $self->error if $self->debug;
                         }
@@ -170,17 +170,26 @@ sub authenticate {
               unless $self->_return_to_is_valid(
                       $params->{'openid.return_to'});
 
+            # Check Discovered Information
+
             # Check nonce
             return $cb->($self, undef, 'error')
               unless $self->_nonce_is_valid(
                       $params->{'openid.response_nonce'});
 
-            my $op_endpoint = $params->{'openid.op_endpoint'};
-
-            # Verify association
-            if ($self->store_cb) {
-                #die 'implement!';
+            if (my $handle = $params->{'openid.invalidate_handle'}) {
+                $self->remove_cb($handle);
             }
+            else {
+
+                # Verify association
+                if ($self->store_cb) {
+
+                    #die 'implement!';
+                }
+            }
+
+            my $op_endpoint = $params->{'openid.op_endpoint'};
 
             # Verifying Directly with the OpenID Provider
             return $self->_authenticate_directly($op_endpoint,
@@ -256,7 +265,7 @@ sub _associate {
 
                 # OP can suggest which session_type and assoc_type it supports
                 # and we can try again unless we have already tried
-                if ($params->{error_code} eq 'unsupported-type') {
+                if ($params->{error_code} && $params->{error_code} eq 'unsupported-type') {
                     warn 'Association unsuccessful response' if $self->debug;
 
                     if (   $params->{session_type}
@@ -281,11 +290,12 @@ sub _associate {
                 }
 
                 # Nothing we can do
+                warn $params->{error} if $self->debug;
                 $self->error($params->{error});
                 return $cb->($self, 'error');
             }
 
-            # Check if it is a successul response
+            # Check if it is a successful response
             my $assoc_handle = $params->{assoc_handle};
             unless ($assoc_handle
                 && $params->{session_type}
@@ -300,12 +310,16 @@ sub _associate {
             if (   $params->{assoc_type} eq $association->assoc_type
                 && $params->{session_type} eq $association->session_type)
             {
+
+                # Check expires_in
                 my $expires_in = $params->{expires_in};
                 unless ($expires_in =~ m/^\d+$/) {
                     $self->error('Wrong expires_in');
                     return $cb->($self, 'error');
                 }
 
+                # There are different fields returned when using/not using
+                # encyption
                 if ($association->is_encrypted) {
                     unless ($params->{dh_server_public}
                         && $params->{enc_mac_key})
@@ -395,6 +409,8 @@ sub _authenticate_directly {
 
     warn 'Direct authentication' if $self->debug;
 
+    # When using Direct Authentication we must take all the params we've got
+    # from the OP (instead of the mode) and send them back
     my $params =
       {%{$args->{params}}, 'openid.mode' => 'check_authentication'};
 
@@ -412,21 +428,23 @@ sub _authenticate_directly {
 
             my $params = Protocol::OpenID::Parameters->new($body);
             unless ($params->param('is_valid')) {
+                warn $body if $self->debug;
                 $self->error('is_valid field is missing');
                 return $cb->($self, undef, 'error');
             }
 
-            unless ($params->param('is_valid') eq 'true') {
-                $self->error('Not a valid user');
-                return $cb->($self, undef, 'error');
+            if ($params->param('is_valid') eq 'true') {
+                # Finally verified user
+                return $cb->($self, undef, 'verified');
             }
+
+            $self->error('Not a valid user');
 
             if ($params->param('invalidate_handle')) {
                 die 'SUPPORT ME!';
             }
 
-            # Finally verified user
-            return $cb->($self, undef, 'verified');
+            return $cb->($self, undef, 'error');
         }
     );
 }

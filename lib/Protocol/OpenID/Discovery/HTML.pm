@@ -1,5 +1,4 @@
 package Protocol::OpenID::Discovery::HTML;
-use Mouse;
 
 use Protocol::OpenID::Discovery;
 
