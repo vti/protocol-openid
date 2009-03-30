@@ -194,11 +194,7 @@ sub _redirect {
         mode     => 'checkid_setup',
         identity => $discovery->op_local_identifier,
 
-        return_to    => $self->return_to,
-
-        # TODO
-        #trust_root        => $self->realm
-        #realm        => $self->realm
+        return_to => $self->return_to,
     );
 
     if ($discovery->protocol_version eq
@@ -206,6 +202,12 @@ sub _redirect {
     {
         $params->param(ns         => $discovery->protocol_version);
         $params->param(claimed_id => $discovery->claimed_identifier);
+
+        # TODO realm
+    }
+    else {
+
+        # TODO trust_root
     }
 
     if (my $association = $self->association) {
