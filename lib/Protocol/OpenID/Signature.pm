@@ -1,32 +1,47 @@
 package Protocol::OpenID::Signature;
+use Mouse;
 
-use strict;
-use warnings;
-
-use base 'Mojo::Base';
-
-use Protocol::OpenID::Message;
+use Protocol::OpenID::Parameters;
 use Digest::SHA1 qw(sha1 sha1_hex);
 
-__PACKAGE__->attr(signed => (chained => 1));
-__PACKAGE__->attr(params => (default => sub { {} }));
+has params => (
+    isa     => 'Protocol::OpenID::Parameters',
+    is      => 'rw'
+);
+
+has algorithm => (
+    isa     => 'Str',
+    is      => 'rw',
+    default => 'HMAC-SHA1'
+);
+
+sub keys {
+    my $self = shift;
+
+    return unless $self->params;
+
+    my $signed = $self->params->param('signed');
+    return unless $signed;
+
+    return split(',', $signed);
+}
 
 sub calculate {
     my $self = shift;
+    my $secret = shift;
 
-    return unless $self->signed;
+    return unless $secret;
 
-    my $message = Protocol::OpenID::Message->new;
+    my @keys = $self->keys;
 
-    my $params = $self->params;
-    my @keys = split(',', $self->signed);
+    my $params = Protocol::OpenID::Parameters->new;
     foreach my $key (@keys) {
-        $message->param($key => $params->{"openid.$key"});
+        $params->param($key => $self->params->param($key));
     }
 
-    my $string = $message->to_string;
+    my $string = $params->to_string;
 
-    return _hmac_sha1($string, 'secret');
+    return _hmac_sha1($string, $secret);
 }
 
 # From Digest::HMAC
