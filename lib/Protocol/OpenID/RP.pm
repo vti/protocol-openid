@@ -5,6 +5,7 @@ use Async::Hooks;
 use Protocol::Yadis;
 use Protocol::OpenID::Nonce;
 use Protocol::OpenID::Identifier;
+use Protocol::OpenID::Signature;
 use Protocol::OpenID::Association;
 use Protocol::OpenID::Parameters;
 use Protocol::OpenID::Discovery;
@@ -30,10 +31,21 @@ has store_cb => (
     is  => 'rw'
 );
 
+has find_cb => (
+    isa     => 'CodeRef',
+    is      => 'rw',
+    default => sub { sub {} }
+);
+
+has remove_cb => (
+    isa     => 'CodeRef',
+    is      => 'rw',
+    default => sub { sub {} }
+);
+
 has return_to => (
     isa      => 'Str',
-    is       => 'rw',
-    required => 1
+    is       => 'rw'
 );
 
 has discovery => (
@@ -85,6 +97,12 @@ sub authenticate {
     my $self = shift;
     my ($params, $cb) = @_;
 
+    # Din't put 'required => 1' into attribute definition because:
+    # - it is only required now
+    # - one can create an object and use it in many places without a need to
+    #   specify return_to on its creation
+    die 'return_to is required' unless $self->return_to;
+
     # From User Agent
     if (my $openid_identifier = $params->{'openid_identifier'}) {
 
@@ -101,23 +119,21 @@ sub authenticate {
                 # Return if discovery was unsuccessful
                 return $cb->($self, undef, 'error') unless $discovery;
 
+                # Start association with OP
                 $self->_associate(
                     $discovery->op_endpoint,
                     sub {
                         my ($self, $result) = @_;
-
-                        my $assoc_handle;
 
                         # Store association
                         if ($result eq 'ok') {
                             warn 'Association ran fine, storing it'
                               if $self->debug;
 
-                            $assoc_handle = $self->association->assoc_handle;
+                            my $assoc_handle = $self->association->assoc_handle;
 
                             return $self->store_cb->(
-                                $assoc_handle,
-                                $self->association->to_hash,
+                                $assoc_handle => $self->association->to_hash,
                                 sub { return $self->_redirect($cb); }
                             );
                         }
@@ -240,6 +256,7 @@ sub _associate {
         'openid.session_type' => $association->session_type
     };
 
+    # If encrypted
     if (   $association->session_type eq 'DH-SHA1'
         || $association->session_type eq 'DH-SHA256')
     {
@@ -473,21 +490,42 @@ sub _verify_handle {
 
     return $cb->($self, 0) unless $self->store_cb;
 
+    if (my $handle = $params->{'openid.invalidate_handle'}) {
+        warn "Removing handle '$handle'" if $self->debug;
+        $self->remove_cb->($handle, sub {});
+    }
+
     my $key = $params->{'openid.assoc_handle'};
 
-    my $handle = $self->find_cb($key);
+    my $handle = $self->find_cb->($key);
     return $cb->($self, 0) unless $handle;
+    warn "Handle '$handle' was found" if $self->debug;
 
     $self->association(Protocol::OpenID::Association->new(%$handle));
 
-    return 1;
+    return $cb->($self, 1);
 }
 
 sub _verify_association {
     my $self = shift;
     my ($params, $cb) = @_;
 
-    return $cb->($self, 0);
+    my $association = $self->association;
+    return $cb->($self, 0) unless $association;
+
+    my $op_signature = $params->{'openid.sig'};
+
+    my $sg = Protocol::OpenID::Signature->new(
+        algorithm => $association->assoc_type,
+        params    => $params
+    );
+
+    my $rp_signature = $sg->calculate($association->enc_mac_key);
+
+    return $cb->($self, 0) unless $op_signature eq $rp_signature;
+
+    warn 'Signatures match' if $self->debug;
+    return $cb->($self, 1);
 }
 
 sub _authenticate_directly {

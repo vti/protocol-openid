@@ -5,8 +5,9 @@ use Protocol::OpenID::Parameters;
 use Digest::SHA1 qw(sha1 sha1_hex);
 
 has params => (
-    isa     => 'Protocol::OpenID::Parameters',
-    is      => 'rw'
+    isa     => 'HashRef',
+    is      => 'rw',
+    default => sub { {} }
 );
 
 has algorithm => (
@@ -20,7 +21,7 @@ sub keys {
 
     return unless $self->params;
 
-    my $signed = $self->params->param('signed');
+    my $signed = $self->params->{'openid.signed'};
     return unless $signed;
 
     return split(',', $signed);
@@ -36,7 +37,7 @@ sub calculate {
 
     my $params = Protocol::OpenID::Parameters->new;
     foreach my $key (@keys) {
-        $params->param($key => $self->params->param($key));
+        $params->param($key => $self->params->{$key});
     }
 
     my $string = $params->to_string;

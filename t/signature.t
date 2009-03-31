@@ -7,7 +7,7 @@ my $s = Protocol::OpenID::Signature->new;
 
 is_deeply([$s->keys], []);
 
-my $params = Protocol::OpenID::Parameters->new(
+my $params = {
     'openid.response_nonce' => '2009-03-29T22:26:35Z0610',
     'openid.mode'           => 'id_res',
     'openid.claimed_id'     => 'http://foo.bar.net/',
@@ -19,7 +19,7 @@ my $params = Protocol::OpenID::Parameters->new(
     'openid.op_endpoint' => 'http://bar.net/server',
     'openid.identity'    => 'http://foo.bar.net/',
     'openid.return_to'   => 'http://myserver.com/'
-);
+};
 
 $s->params($params);
 
