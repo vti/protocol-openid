@@ -48,10 +48,14 @@ sub normalize {
         # Remove fragment
         $value =~ s/#.*$//;
 
+        my ($base, $path) = ($value =~ m/^(https?:\/\/[^\/]+)(.*)/);
+
+        $value = lc $base;
+
         # Add leading slash
-        if ($value =~ m/https?:\/\/[^\/]+$/) {
-            $value .= '/';
-        }
+        $value .= '/' unless $path;
+
+        $value .= $path;
     }
 
     $self->value($value);

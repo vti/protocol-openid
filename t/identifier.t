@@ -1,4 +1,4 @@
-use Test::More tests => 19;
+use Test::More tests => 23;
 
 use_ok('Protocol::OpenID::Identifier');
 
@@ -30,6 +30,16 @@ is($id->type, 'URL');
 
 $id = Protocol::OpenID::Identifier->new('http://example.com/'),
   is("$id", 'http://example.com/',
+    'URL.  Trailing slashes are preserved when the path is empty');
+is($id->type, 'URL');
+
+$id = Protocol::OpenID::Identifier->new('http://EXAMPle.COm/'),
+  is("$id", 'http://example.com/',
+    'URL.  Trailing slashes are preserved when the path is empty');
+is($id->type, 'URL');
+
+$id = Protocol::OpenID::Identifier->new('http://EXAMPle.COm/FOO/BAR'),
+  is("$id", 'http://example.com/FOO/BAR',
     'URL.  Trailing slashes are preserved when the path is empty');
 is($id->type, 'URL');
 
