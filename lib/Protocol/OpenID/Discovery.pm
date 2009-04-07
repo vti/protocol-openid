@@ -33,4 +33,11 @@ has op_local_identifier => (
     default => 'http://specs.openid.net/auth/2.0/identifier_select'
 );
 
+sub clear {
+    my $self = shift;
+
+
+    return $self;
+}
+
 1;

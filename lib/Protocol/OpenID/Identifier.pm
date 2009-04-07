@@ -21,16 +21,15 @@ sub new {
     my $self  = $class->SUPER::new();
 
     if (my $value = shift) {
-        $self->value($value);
+        $self->parse($value);
     }
 
     return $self;
 }
 
-sub normalize {
+sub parse {
     my $self = shift;
-
-    my $value = $self->value;
+    my $value = shift;
 
     Carp::croak('value is required') unless $value;
 
@@ -66,7 +65,7 @@ sub normalize {
 sub to_string {
     my $self = shift;
 
-    $self->normalize->value;
+    $self->value;
 }
 
 1;

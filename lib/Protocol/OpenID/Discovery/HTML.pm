@@ -48,9 +48,6 @@ sub _http_res_on {
     foreach my $tag (@$tags) {
         next unless $tag->{name} eq 'link';
 
-        #use Data::Dumper;
-        #warn Dumper $tag;
-
         my $attrs = $tag->{attrs};
         next unless %$attrs && $attrs->{'rel'};
 
@@ -96,14 +93,23 @@ sub _html_tag {
     my $txtref = shift;    # reference
     my $flat   = [];
 
+    # Strip comments
+    $$txtref =~ s/<!--.*?-->//sg;
+
+    # Strip scripts
+    $$txtref =~ s/<script.*?>.*?<\/script>//isg;
+
     while (
         $$txtref =~ s{
-        ^(?:[^<]*) < (?:
-            ( / )? ( [^/!<>\s"'=]+ )
-            ( (?:"[^"]*"|'[^']*'|[^"'<>])+ )?
-        |   
-            (!-- .*? -- | ![^\-] .*? )
-        ) \/?> ([^<]*)
+        ^(?:[^<]*)
+        < (?:
+                ( / )?
+                ( [^/!<>\s"'=]+ )
+                ( (?:"[^"]*"|'[^']*'|[^"'<>])+ )?
+            |
+            (![^\-] .*? )
+          ) \/?
+        > ([^<]*)
     }{}sxg
       )
     {
