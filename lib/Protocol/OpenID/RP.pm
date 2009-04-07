@@ -220,10 +220,12 @@ sub _redirect {
         $params->param(claimed_id => $discovery->claimed_identifier);
 
         # TODO realm
+        $params->param(realm => $self->return_to);
     }
     else {
 
         # TODO trust_root
+        $params->param(trust_root => $self->return_to);
     }
 
     if (my $association = $self->association) {
