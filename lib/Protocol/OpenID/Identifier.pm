@@ -54,7 +54,7 @@ sub parse {
         # Add leading slash
         $value .= '/' unless $path;
 
-        $value .= $path;
+        $value .= $path if $path;
     }
 
     $self->value($value);

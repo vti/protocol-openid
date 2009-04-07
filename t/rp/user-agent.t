@@ -217,7 +217,8 @@ $rp->authenticate(
                 'openid.mode'       => 'checkid_setup',
                 'openid.claimed_id' => 'http://foo.exampleprovider.com/',
                 'openid.identity'   => 'https://exampleuser.exampleprovider.com/',
-                'openid.return_to'  => 'http://foo.bar'
+                'openid.return_to'  => 'http://foo.bar/',
+                'openid.realm'      => 'http://foo.bar/'
             }
         );
     }
@@ -241,7 +242,8 @@ $rp->authenticate(
                   'http://specs.openid.net/auth/2.0/identifier_select',
                 'openid.identity' =>
                   'http://specs.openid.net/auth/2.0/identifier_select',
-                'openid.return_to' => 'http://foo.bar'
+                'openid.return_to' => 'http://foo.bar/',
+                'openid.realm'      => 'http://foo.bar/'
             }
         );
     }
@@ -261,7 +263,8 @@ $rp->authenticate(
             $params,
             {   'openid.mode'      => 'checkid_setup',
                 'openid.identity'  => 'http://1.0.exampleprovider.com/',
-                'openid.return_to' => 'http://foo.bar'
+                'openid.return_to' => 'http://foo.bar/',
+                'openid.trust_root'      => 'http://foo.bar/'
             }
         );
     }
@@ -281,7 +284,8 @@ $rp->authenticate(
             $params,
             {   'openid.mode'      => 'checkid_setup',
                 'openid.identity'  => 'http://1.1.exampleprovider.com/',
-                'openid.return_to' => 'http://foo.bar'
+                'openid.return_to' => 'http://foo.bar/',
+                'openid.trust_root'      => 'http://foo.bar/'
             }
         );
     }
@@ -302,7 +306,8 @@ $rp->authenticate(
             {   'openid.mode' => 'checkid_setup',
                 'openid.identity' =>
                   'http://1.1-with-query.html.exampleprovider.com/',
-                'openid.return_to' => 'http://foo.bar'
+                'openid.return_to' => 'http://foo.bar/',
+                'openid.trust_root'      => 'http://foo.bar/'
             }
         );
     }
@@ -322,7 +327,8 @@ $rp->authenticate(
             $params,
             {   'openid.mode'      => 'checkid_setup',
                 'openid.identity'  => 'https://other.exampleprovider.com/',
-                'openid.return_to' => 'http://foo.bar'
+                'openid.return_to' => 'http://foo.bar/',
+                'openid.trust_root'      => 'http://foo.bar/'
             }
         );
     }
@@ -342,7 +348,8 @@ $rp->authenticate(
             $params,
             {   'openid.mode'      => 'checkid_setup',
                 'openid.identity'  => 'https://other.exampleprovider.com/',
-                'openid.return_to' => 'http://foo.bar'
+                'openid.return_to' => 'http://foo.bar/',
+                'openid.trust_root'      => 'http://foo.bar/'
             }
         );
     }
@@ -363,7 +370,8 @@ $rp->authenticate(
                 'openid.mode' => 'checkid_setup',
                 'openid.claimed_id' => 'http://2.0and1.1.exampleprovider.com/',
                 'openid.identity' => 'https://exampleuser.exampleprovider.com/',
-                'openid.return_to' => 'http://foo.bar'
+                'openid.return_to' => 'http://foo.bar/',
+                'openid.realm'      => 'http://foo.bar/'
             }
         );
     }
@@ -385,7 +393,8 @@ $rp->authenticate(
                 'openid.mode'       => 'checkid_setup',
                 'openid.claimed_id' => 'http://html.exampleprovider.com/',
                 'openid.identity'   => 'https://html.exampleprovider.com/',
-                'openid.return_to'  => 'http://foo.bar'
+                'openid.return_to'  => 'http://foo.bar/',
+                'openid.realm'      => 'http://foo.bar/'
             }
         );
     }
@@ -406,7 +415,8 @@ $rp->authenticate(
                 'openid.mode'       => 'checkid_setup',
                 'openid.claimed_id' => 'http://html2.exampleprovider.com/',
                 'openid.identity'   => 'http://html2.exampleprovider.com/',
-                'openid.return_to'  => 'http://foo.bar'
+                'openid.return_to'  => 'http://foo.bar/',
+                'openid.realm'      => 'http://foo.bar/'
             }
         );
     }
@@ -428,7 +438,8 @@ $rp->authenticate(
                 'openid.mode'       => 'checkid_setup',
                 'openid.claimed_id' => 'http://html3.exampleprovider.com/',
                 'openid.identity'   => 'http://html3.exampleprovider.com/',
-                'openid.return_to'  => 'http://foo.bar'
+                'openid.return_to'  => 'http://foo.bar/',
+                'openid.realm'      => 'http://foo.bar/'
             }
         );
     }
@@ -450,7 +461,8 @@ $rp->authenticate(
                 'openid.mode'       => 'checkid_setup',
                 'openid.claimed_id' => 'http://html4.exampleprovider.com/',
                 'openid.identity'   => 'http://html4.exampleprovider.com/',
-                'openid.return_to'  => 'http://foo.bar'
+                'openid.return_to'  => 'http://foo.bar/',
+                'openid.realm'      => 'http://foo.bar/'
             }
         );
     }
@@ -470,7 +482,8 @@ $rp->authenticate(
         is_deeply($params,
             {   'openid.mode'       => 'checkid_setup',
                 'openid.identity'   => 'https://html.exampleprovider.com/',
-                'openid.return_to'  => 'http://foo.bar'
+                'openid.return_to'  => 'http://foo.bar/',
+                'openid.trust_root'      => 'http://foo.bar/'
             }
         );
     }
@@ -489,7 +502,8 @@ $rp->authenticate(
         is_deeply($params,
             {   'openid.mode'       => 'checkid_setup',
                 'openid.identity'   => 'https://html.exampleprovider.com/',
-                'openid.return_to'  => 'http://foo.bar'
+                'openid.return_to'  => 'http://foo.bar/',
+                'openid.trust_root'      => 'http://foo.bar/'
             }
         );
     }

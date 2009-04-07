@@ -43,7 +43,7 @@ has remove_cb => (
     default => sub { sub {} }
 );
 
-has return_to => (
+has _return_to => (
     isa      => 'Str',
     is       => 'rw'
 );
@@ -82,7 +82,13 @@ has _associate_counter => (
 
 sub new {
     my $class = shift;
-    my $self  = $class->SUPER::new(@_);
+    my %params = @_;
+
+    my $return_to = delete $params{return_to};
+
+    my $self = $class->SUPER::new(%params);
+
+    $self->return_to($return_to) if $return_to;
 
     # Yadis discovery hook
     $self->hook(discover => \&Protocol::OpenID::Discovery::Yadis::hook);
@@ -91,6 +97,20 @@ sub new {
     $self->hook(discover => \&Protocol::OpenID::Discovery::HTML::hook);
 
     return $self;
+}
+
+sub return_to {
+    my $self = shift;
+
+    if (my $value = shift) {
+        my $identifier = Protocol::OpenID::Identifier->new($value);
+
+        $self->_return_to($identifier->to_string);
+
+        return $self;
+    }
+
+    return $self->_return_to;
 }
 
 sub authenticate {

@@ -126,7 +126,7 @@ $rp->clear;
 $rp->authenticate(
     {   'openid.ns'        => $Protocol::OpenID::Discovery::VERSION_2_0,
         'openid.mode'      => 'id_res',
-        'openid.return_to' => 'http://foo.bar'
+        'openid.return_to' => 'http://foo.bar/'
     },
     sub {
         my ($self, $url, $action, $location) = @_;
@@ -140,7 +140,7 @@ $rp->clear;
 $rp->authenticate(
     {   'openid.ns'        => $Protocol::OpenID::Discovery::VERSION_2_0,
         'openid.mode'      => 'id_res',
-        'openid.return_to' => 'http://foo.bar',
+        'openid.return_to' => 'http://foo.bar/',
         'openid.identity'       => 'http://user.myserverprovider.com/',
     },
     sub {
@@ -155,7 +155,7 @@ $rp->clear;
 $rp->authenticate(
     {   'openid.ns'             => $Protocol::OpenID::Discovery::VERSION_2_0,
         'openid.mode'           => 'id_res',
-        'openid.return_to'      => 'http://foo.bar',
+        'openid.return_to'      => 'http://foo.bar/',
         'openid.identity'       => 'http://user.myserverprovider.com/',
         'openid.response_nonce' => '2000-12-12T12:12:12ZHELLO'
     },
@@ -171,7 +171,7 @@ $rp->clear;
 $rp->authenticate(
     {   'openid.ns'             => $Protocol::OpenID::Discovery::VERSION_2_0,
         'openid.mode'           => 'id_res',
-        'openid.return_to'      => 'http://foo.bar',
+        'openid.return_to'      => 'http://foo.bar/',
         'openid.identity'       => 'http://user.myserverprovider.com/',
         'openid.response_nonce' => '2029-12-12T12:12:12ZHELLO'
     },
@@ -187,7 +187,7 @@ $rp->clear;
 $rp->authenticate(
     {   'openid.ns'             => $Protocol::OpenID::Discovery::VERSION_2_0,
         'openid.mode'           => 'id_res',
-        'openid.return_to'      => 'http://foo.bar',
+        'openid.return_to'      => 'http://foo.bar/',
         'openid.response_nonce' => Protocol::OpenID::Nonce->new,
         'openid.op_endpoint'    => 'http://myserverprovider.com/',
         'openid.claimed_id'     => 'http://user.myserverprovider.com/',
