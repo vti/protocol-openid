@@ -43,7 +43,18 @@ has remove_cb => (
     default => sub { sub {} }
 );
 
+has immediate_request => (
+    isa     => 'Int',
+    is      => 'rw',
+    default => 0
+);
+
 has _return_to => (
+    isa      => 'Str',
+    is       => 'rw'
+);
+
+has _realm => (
     isa      => 'Str',
     is       => 'rw'
 );
@@ -113,15 +124,27 @@ sub return_to {
     return $self->_return_to;
 }
 
+sub realm {
+    my $self = shift;
+
+    if (my $value = shift) {
+        my $identifier = Protocol::OpenID::Identifier->new($value);
+
+        $self->_realm($identifier->to_string);
+
+        return $self;
+    }
+
+    return $self->_realm;
+}
+
 sub authenticate {
     my $self = shift;
     my ($params, $cb) = @_;
 
-    # Din't put 'required => 1' into attribute definition because:
-    # - it is only required now
-    # - one can create an object and use it in many places without a need to
-    #   specify return_to on its creation
-    die 'return_to is required' unless $self->return_to;
+    # return_to is not required, but when omitted realm MUST be sent
+    die 'realm is required when return_to is omitted'
+      if !$self->return_to && !$self->realm;
 
     # From User Agent
     if (my $openid_identifier = $params->{'openid_identifier'}) {
@@ -227,9 +250,9 @@ sub _redirect {
 
     # Prepare params
     my $params = Protocol::OpenID::Parameters->new(
-        mode     => 'checkid_setup',
-        identity => $discovery->op_local_identifier,
-
+        mode => $self->immediate_request
+        ? 'checkid_immediate'
+        : 'checkid_setup',
         return_to => $self->return_to,
     );
 
@@ -239,13 +262,25 @@ sub _redirect {
         $params->param(ns         => $discovery->protocol_version);
         $params->param(claimed_id => $discovery->claimed_identifier);
 
-        # TODO realm
-        $params->param(realm => $self->return_to);
+        if ($params->param('claimed_id') ne
+            'http://specs.openid.net/auth/2.0/identifier_select'
+            && $discovery->op_local_identifier eq
+            'http://specs.openid.net/auth/2.0/identifier_select')
+        {
+            $params->param(identity => $discovery->claimed_identifier);
+        }
+        else {
+            $params->param(identity => $discovery->op_local_identifier);
+        }
+
+        $params->param(
+            realm => $self->realm ? $self->realm : $self->return_to);
     }
     else {
+        $params->param(identity => $discovery->op_local_identifier);
 
         # TODO trust_root
-        $params->param(trust_root => $self->return_to);
+        $params->param(trust_root => $self->realm ? $self->realm : $self->return_to);
     }
 
     if (my $association = $self->association) {
