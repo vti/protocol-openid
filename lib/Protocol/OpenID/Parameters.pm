@@ -25,18 +25,23 @@ sub new {
     return $self;
 }
 
-sub params { defined $_[1] ? $_[0]->{params} = $_[1] : $_[0]->{params} }
+sub params { @_ > 1 ? $_[0]->{params} = $_[1] : $_[0]->{params} }
 
 sub parse {
     my $self = shift;
     my $content = shift;
 
-    return unless $content;
+    $self->params([]);
+
+    return $self unless $content;
 
     my @lines = split("\n", $content);
 
     foreach my $line (@lines) {
-        next unless $line =~ m/^(.*?):(.*)/;
+        unless ($line =~ m/^(.*?):(.*)/) {
+            $self->param([]);
+            return $self;
+        }
 
         $self->param($1 => $2);
     }
