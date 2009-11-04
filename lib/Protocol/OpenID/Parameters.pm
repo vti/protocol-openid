@@ -1,17 +1,17 @@
 package Protocol::OpenID::Parameters;
-use Mouse;
+
+use strict;
+use warnings;
 
 use overload '""' => sub { shift->to_string }, fallback => 1;
 
-has params => (
-    isa     => 'ArrayRef',
-    is      => 'rw',
-    default => sub { [] }
-);
-
 sub new {
     my $class = shift;
-    my $self  = $class->SUPER::new;
+
+    my $self  = {};
+    bless $self, $class;
+
+    $self->{params} = [];
 
     if (@_ == 1) {
         $self->parse(@_);
@@ -24,6 +24,8 @@ sub new {
 
     return $self;
 }
+
+sub params { defined $_[1] ? $_[0]->{params} = $_[1] : $_[0]->{params} }
 
 sub parse {
     my $self = shift;

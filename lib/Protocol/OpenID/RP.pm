@@ -1,5 +1,7 @@
 package Protocol::OpenID::RP;
-use Mouse;
+
+use strict;
+use warnings;
 
 use Async::Hooks;
 use Protocol::Yadis;
@@ -12,84 +14,40 @@ use Protocol::OpenID::Discovery;
 use Protocol::OpenID::Discovery::Yadis;
 use Protocol::OpenID::Discovery::HTML;
 
-has hooks => (
-    isa     => 'Async::Hooks',
-    default => sub { Async::Hooks->new },
-    is      => 'ro',
-    lazy    => 1,
-    handles => [qw( hook call )],
-);
+sub hooks { $_[0]->{hooks} ||= Async::Hooks->new }
+sub hook  { shift->hooks->hook(@_) }
+sub call  { shift->hooks->call(@_) }
 
-has http_req_cb => (
-    isa      => 'CodeRef',
-    is       => 'rw',
-    required => 1
-);
+sub http_req_cb {
+    defined $_[1] ? $_[0]->{http_req_cb} = $_[1] : $_[0]->{http_req_cb};
+}
 
-has store_cb => (
-    isa => 'CodeRef',
-    is  => 'rw'
-);
+sub store_cb { defined $_[1] ? $_[0]->{store_cb} = $_[1] : $_[0]->{store_cb} }
 
-has find_cb => (
-    isa     => 'CodeRef',
-    is      => 'rw',
-    default => sub { sub {} }
-);
+sub find_cb   { defined $_[1] ? $_[0]->{store_cb} = $_[1]  : $_[0]->{store_cb} }
+sub remove_cb { defined $_[1] ? $_[0]->{remove_cb} = $_[1] : $_[0]->{remove_cb} }
 
-has remove_cb => (
-    isa     => 'CodeRef',
-    is      => 'rw',
-    default => sub { sub {} }
-);
+sub immediate_request {
+    defined $_[1] ? $_[0]->{immediate_request} = $_[1] : $_[0]->{immediate_request};
+}
 
-has immediate_request => (
-    isa     => 'Int',
-    is      => 'rw',
-    default => 0
-);
+sub _return_to { defined $_[1] ? $_[0]->{_return_to} = $_[1] : $_[0]->{_return_to} }
 
-has _return_to => (
-    isa      => 'Str',
-    is       => 'rw'
-);
+sub _realm { defined $_[1] ? $_[0]->{_realm} = $_[1] : $_[0]->{_realm} }
 
-has _realm => (
-    isa      => 'Str',
-    is       => 'rw'
-);
+sub discovery { defined $_[1] ? $_[0]->{discovery} = $_[1] : $_[0]->{discovery} }
 
-has discovery => (
-    isa     => 'Protocol::OpenID::Discovery',
-    is      => 'rw',
-    clearer => 'clear_discovery'
-);
+sub association {
+    defined $_[1] ? $_[0]->{association} = $_[1] : $_[0]->{association};
+}
 
-has association => (
-    isa     => 'Protocol::OpenID::Association',
-    is      => 'rw',
-    clearer => 'clear_association',
-    default => sub { Protocol::OpenID::Association->new }
-);
+sub _associate_counter {
+    defined $_[1] ? $_[0]->{_associate_counter} = $_[1] : $_[0]->{_associate_counter};
+}
 
-has error => (
-    isa => 'Str',
-    is  => 'rw',
-    clearer => 'clear_error'
-);
+sub error { defined $_[1] ? $_[0]->{error} = $_[1] : $_[0]->{error} }
 
-# debugging
-has debug => (
-    isa     => 'Int',
-    is      => 'rw',
-    default => sub { $ENV{PROTOCOL_OPENID_DEBUG} || 0 }
-);
-
-has _associate_counter => (
-    isa     => 'Int',
-    is      => 'rw',
-    default => 0
-);
+sub debug { $ENV{PROTOCOL_OPENID_DEBUG} || 0 }
 
 sub new {
     my $class = shift;
@@ -97,7 +55,14 @@ sub new {
 
     my $return_to = delete $params{return_to};
 
-    my $self = $class->SUPER::new(%params);
+    my $self = {%params};
+    bless $self, $class;
+
+    $self->{find_cb} ||= sub {};
+    $self->{remove_cb} ||= sub {};
+    $self->{immediate_request} ||= 0;
+    $self->{association} ||= Protocol::OpenID::Association->new;
+    $self->{_associate_counter} ||= 0;
 
     $self->return_to($return_to) if $return_to;
 
@@ -235,9 +200,9 @@ sub authenticate {
 sub clear {
     my $self = shift;
 
-    $self->clear_error;
-    $self->clear_discovery;
-    $self->clear_association;
+    $self->error('');
+    $self->discovery(undef);
+    $self->association(undef);
 
     return $self;
 }
@@ -279,7 +244,6 @@ sub _redirect {
     else {
         $params->param(identity => $discovery->op_local_identifier);
 
-        # TODO trust_root
         $params->param(trust_root => $self->realm ? $self->realm : $self->return_to);
     }
 

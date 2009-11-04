@@ -1,5 +1,8 @@
 package Protocol::OpenID::Discovery::HTML;
 
+use strict;
+use warnings;
+
 use Protocol::OpenID::Discovery;
 
 sub hook {

@@ -1,37 +1,52 @@
 package Protocol::OpenID::Discovery;
-use Mouse;
+
+use strict;
+use warnings;
 
 our $VERSION_1_0 = 'http://openid.net/signon/1.0';
 our $VERSION_1_1 = 'http://openid.net/signon/1.1';
 our $VERSION_2_0 = 'http://specs.openid.net/auth/2.0';
 
-has op_identifier => (
-    isa     => 'Str',
-    is      => 'rw'
-);
+sub new {
+    my $class = shift;
 
-has protocol_version => (
-    isa     => 'Str',
-    is      => 'rw',
-    default => $VERSION_2_0
-);
+    my $self = {@_};
+    bless $self, $class;
 
-has op_endpoint => (
-    isa => 'Str',
-    is  => 'rw'
-);
+    $self->{protocol_version} ||= $VERSION_2_0;
+    $self->{claimed_identifier}
+      ||= 'http://specs.openid.net/auth/2.0/identifier_select';
+    $self->{op_local_identifier}
+      ||= 'http://specs.openid.net/auth/2.0/identifier_select';
 
-has claimed_identifier => (
-    isa     => 'Str',
-    is      => 'rw',
-    default => 'http://specs.openid.net/auth/2.0/identifier_select'
-);
+    return $self;
+}
 
-has op_local_identifier => (
-    isa     => 'Str',
-    is      => 'rw',
-    default => 'http://specs.openid.net/auth/2.0/identifier_select'
-);
+sub op_identifier {
+    defined $_[1] ? $_[0]->{op_identifier} = $_[1] : $_[0]->{op_identifier};
+}
+
+sub protocol_version {
+    defined $_[1]
+      ? $_[0]->{protocol_version} = $_[1]
+      : $_[0]->{protocol_version};
+}
+
+sub op_endpoint {
+    defined $_[1] ? $_[0]->{op_endpoint} = $_[1] : $_[0]->{op_endpoint};
+}
+
+sub claimed_identifier {
+    defined $_[1]
+      ? $_[0]->{claimed_identifier} = $_[1]
+      : $_[0]->{claimed_identifier};
+}
+
+sub op_local_identifier {
+    defined $_[1]
+      ? $_[0]->{op_local_identifier} = $_[1]
+      : $_[0]->{op_local_identifier};
+}
 
 sub clear {
     my $self = shift;

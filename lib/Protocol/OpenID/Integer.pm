@@ -1,19 +1,18 @@
 package Protocol::OpenID::Integer;
-use Mouse;
+
+use strict;
+use warnings;
 
 use overload '""' => sub { shift->to_string }, fallback => 1;
 
 require Carp;
 use Math::BigInt;
 
-has int => (
-    isa => 'Math::BigInt',
-    is  => 'rw'
-);
-
 sub new {
     my $class = shift;
-    my $self  = $class->SUPER::new();
+
+    my $self  = {};
+    bless $self, $class;
 
     my $int = shift;
 
@@ -25,6 +24,8 @@ sub new {
 
     return $self;
 }
+
+sub int { defined $_[1] ? $_[0]->{int} = $_[1] : $_[0]->{int} }
 
 sub to_string {
     my $self = shift;

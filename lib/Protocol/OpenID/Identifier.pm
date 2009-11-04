@@ -1,31 +1,29 @@
 package Protocol::OpenID::Identifier;
-use Mouse;
+
+use strict;
+use warnings;
 
 use overload '""' => sub { shift->to_string }, fallback => 1;
 
 require Carp;
 
-has value => (
-    isa => 'Str',
-    is  => 'rw'
-);
-
-has type => (
-    isa     => 'Str',
-    is      => 'rw',
-    default => 'URL'
-);
-
 sub new {
     my $class = shift;
-    my $self  = $class->SUPER::new();
+
+    my $self = {};
+    bless $self, $class;
 
     if (my $value = shift) {
         $self->parse($value);
     }
 
+    $self->{type} ||= 'URL';
+
     return $self;
 }
+
+sub value { defined $_[1] ? $_[0]->{value} = $_[1] : $_[0]->{value} }
+sub type  { defined $_[1] ? $_[0]->{type}  = $_[1] : $_[0]->{type} }
 
 sub parse {
     my $self = shift;

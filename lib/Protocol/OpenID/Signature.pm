@@ -1,20 +1,27 @@
 package Protocol::OpenID::Signature;
-use Mouse;
+
+use strict;
+use warnings;
 
 use Protocol::OpenID::Parameters;
 use Digest::SHA1 qw(sha1 sha1_hex);
 
-has params => (
-    isa     => 'HashRef',
-    is      => 'rw',
-    default => sub { {} }
-);
+sub new {
+    my $class = shift;
 
-has algorithm => (
-    isa     => 'Str',
-    is      => 'rw',
-    default => 'HMAC-SHA1'
-);
+    my $self = {@_};
+    bless $self, $class;
+
+    $self->{params} ||= {};
+    $self->{algorithm} ||= 'HMAC-SHA1';
+
+    return $self;
+}
+
+sub params { defined $_[1] ? $_[0]->{params} = $_[1] : $_[0]->{params} }
+sub algorithm {
+    defined $_[1] ? $_[0]->{algorithm} = $_[1] : $_[0]->{algorithm};
+}
 
 sub keys {
     my $self = shift;

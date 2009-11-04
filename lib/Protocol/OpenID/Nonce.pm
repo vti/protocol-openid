@@ -1,25 +1,25 @@
 package Protocol::OpenID::Nonce;
-use Mouse;
+
+use strict;
+use warnings;
 
 use overload '""' => sub { shift->to_string }, fallback => 1;
 
 require Time::Local;
 
-has epoch => (
-    isa => 'Int',
-    is  => 'rw'
-);
-
-has tail => (
-    isa => 'Str',
-    is  => 'rw'
-);
-
 sub new {
-    my $self = shift->SUPER::new();
+    my $class = shift;
+
+    my $self = {};
+    bless $self, $class;
+
     $self->parse(@_);
+
     return $self;
 }
+
+sub epoch { defined $_[1] ? $_[0]->{epoch} = $_[1] : $_[0]->{epoch} }
+sub tail  { defined $_[1] ? $_[0]->{tail}  = $_[1] : $_[0]->{tail} }
 
 sub parse {
     my $self = shift;

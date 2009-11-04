@@ -1,5 +1,8 @@
 package Protocol::OpenID::Discovery::Yadis;
 
+use strict;
+use warnings;
+
 use Protocol::Yadis;
 use Protocol::OpenID::Discovery;
 

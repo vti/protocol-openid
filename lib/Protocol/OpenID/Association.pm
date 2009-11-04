@@ -1,58 +1,57 @@
 package Protocol::OpenID::Association;
-use Mouse;
+
+use strict;
+use warnings;
 
 use Protocol::OpenID::Integer;
 
 use Crypt::DH;
 require MIME::Base64;
 
-has assoc_handle => (
-    isa => 'Str',
-    is  => 'rw'
-);
-has assoc_type => (
-    isa     => 'Str',
-    is      => 'rw',
-    default => 'HMAC-SHA1'
-);
-has session_type => (
-    isa     => 'Str',
-    is      => 'rw',
-    default => 'DH-SHA1'
-);
-has expires => (
-    isa     => 'Int',
-    is      => 'rw',
-    default => 0
-);
+sub new {
+    my $class = shift;
 
-has dh_server_public => (
-    isa => 'Str',
-    is  => 'rw'
-);
-has enc_mac_key => (
-    isa => 'Str',
-    is  => 'rw'
-);
-has mac_key => (
-    isa => 'Str',
-    is  => 'rw'
-);
+    my $self = {@_};
+    bless $self, $class;
 
-has p => (
-    isa => 'Str',
-    is  => 'rw',
-    default =>
-      '0xDCF93A0B883972EC0E19989AC5A2CE310E1D37717E8D9571BB7623731866E61E'
+    $self->{assoc_type}   ||= 'HMAC-SHA1';
+    $self->{session_type} ||= 'DH-SHA1';
+    $self->{expires}      ||= 0;
+    $self->{p} ||=
+        '0xDCF93A0B883972EC0E19989AC5A2CE310E1D37717E8D9571BB7623731866E61E'
       . 'F75A2E27898B057F9891C2E27A639C3F29B60814581CD3B2CA3986D268370557'
       . '7D45C2E7E52DC81C7A171876E5CEA74B1448BFDFAF18828EFD2519F14E45E382'
-      . '6634AF1949E5B535CC829A483B8A76223E5D490A257F05BDFF16F2FB22C583AB'
-);
-has g => (
-    isa     => 'Int',
-    is      => 'rw',
-    default => 2
-);
+      . '6634AF1949E5B535CC829A483B8A76223E5D490A257F05BDFF16F2FB22C583AB';
+    $self->{g} ||= 2;
+
+    return $self;
+}
+
+sub assoc_handle {
+    defined $_[1] ? $_[0]->{assoc_handle} = $_[1] : $_[0]->{assoc_handle};
+}
+
+sub assoc_type {
+    defined $_[1] ? $_[0]->{assoc_type} = $_[1] : $_[0]->{assoc_type};
+}
+
+sub session_type {
+    defined $_[1] ? $_[0]->{session_type} = $_[1] : $_[0]->{session_type};
+}
+sub expires { defined $_[1] ? $_[0]->{expires} = $_[1] : $_[0]->{expires} }
+
+sub dh_server_public {
+    defined $_[1]
+      ? $_[0]->{dh_server_public} = $_[1]
+      : $_[0]->{dh_server_public};
+}
+
+sub enc_mac_key {
+    defined $_[1] ? $_[0]->{enc_mac_key} = $_[1] : $_[0]->{enc_mac_key};
+}
+sub mac_key { defined $_[1] ? $_[0]->{mac_key} = $_[1] : $_[0]->{mac_key} }
+sub p       { defined $_[1] ? $_[0]->{p}       = $_[1] : $_[0]->{p} }
+sub g       { defined $_[1] ? $_[0]->{g}       = $_[1] : $_[0]->{g} }
 
 sub is_encrypted {
     my $self = shift;
@@ -88,7 +87,7 @@ sub dh_consumer_public {
 
 sub to_hash {
     my $self = shift;
-    
+
     my $hash = {
         assoc_handle => $self->assoc_handle,
         assoc_type   => $self->assoc_type,
