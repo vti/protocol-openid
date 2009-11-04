@@ -58,7 +58,7 @@ sub parse {
           Time::Local::timegm($second, $minute, $hour, $day, $month - 1, $year);
     };
 
-    return undef if $@;
+    return undef if $@ || $epoch < 0;
 
     $self->epoch($epoch);
     $self->tail($tail) if $tail;
