@@ -5,15 +5,16 @@ use warnings;
 
 use overload '""' => sub { shift->to_string }, fallback => 1;
 
-require Carp;
-
 sub new {
     my $class = shift;
 
     my $self = {};
     bless $self, $class;
 
-    if (my $value = shift) {
+    $self->{value} = '';
+
+    my $value = shift;
+    if (defined $value) {
         $self->parse($value);
     }
 
@@ -22,14 +23,14 @@ sub new {
     return $self;
 }
 
-sub value { defined $_[1] ? $_[0]->{value} = $_[1] : $_[0]->{value} }
-sub type  { defined $_[1] ? $_[0]->{type}  = $_[1] : $_[0]->{type} }
+sub value { @_ > 1 ? $_[0]->{value} = $_[1] : $_[0]->{value} }
+sub type  { @_ > 1 ? $_[0]->{type}  = $_[1] : $_[0]->{type} }
 
 sub parse {
     my $self = shift;
     my $value = shift;
 
-    Carp::croak('value is required') unless $value;
+    return $self unless $value;
 
     $value =~ s/^xri:\/\///;
 

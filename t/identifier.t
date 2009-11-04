@@ -1,8 +1,28 @@
-use Test::More tests => 23;
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use Test::More tests => 27;
 
 use_ok('Protocol::OpenID::Identifier');
 
 my $id;
+
+$id = Protocol::OpenID::Identifier->new();
+is("$id", '');
+
+$id = Protocol::OpenID::Identifier->new('');
+is("$id", '');
+
+$id = Protocol::OpenID::Identifier->new();
+$id->type('URL');
+$id->value('http://example.com/');
+is("$id", 'http://example.com/');
+
+$id->type(undef);
+$id->value(undef);
+is("$id", '');
 
 $id = Protocol::OpenID::Identifier->new('example.com');
 is("$id", 'http://example.com/',
