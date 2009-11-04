@@ -1,8 +1,20 @@
-use Test::More tests => 6;
+#!/usr/bin/perl
 
-use Protocol::OpenID::Nonce;
+use strict;
+use warnings;
+
+use Test::More tests => 13;
+
+use_ok('Protocol::OpenID::Nonce');
 
 my $nonce = Protocol::OpenID::Nonce->new;
+
+ok($nonce->parse());
+ok(not defined $nonce->epoch);
+ok($nonce->parse(''));
+ok(not defined $nonce->epoch);
+ok($nonce->parse('foo bar'));
+ok(not defined $nonce->epoch);
 
 ok($nonce->parse('2009-03-23T14:40:38ZUNIQUE'));
 
@@ -15,4 +27,5 @@ $nonce = Protocol::OpenID::Nonce->new(1237819238);
 $nonce->tail('ABCD');
 is("$nonce", '2009-03-23T14:40:38ZABCD');
 
-ok(not defined $nonce->parse('foo bar'));
+$nonce->parse();
+ok(not defined $nonce->epoch);

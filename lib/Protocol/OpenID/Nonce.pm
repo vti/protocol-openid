@@ -18,14 +18,17 @@ sub new {
     return $self;
 }
 
-sub epoch { defined $_[1] ? $_[0]->{epoch} = $_[1] : $_[0]->{epoch} }
-sub tail  { defined $_[1] ? $_[0]->{tail}  = $_[1] : $_[0]->{tail} }
+sub epoch { @_ > 1 ? $_[0]->{epoch} = $_[1] : $_[0]->{epoch} }
+sub tail  { @_ > 1 ? $_[0]->{tail}  = $_[1] : $_[0]->{tail} }
 
 sub parse {
     my $self = shift;
     my $date = shift;
 
-    return unless defined $date;
+    $self->epoch(undef);
+    $self->tail(undef);
+
+    return $self unless defined $date;
 
     if ($date =~ /^\d+$/) {
         $self->epoch($date);
@@ -47,7 +50,7 @@ sub parse {
         $tail   = $7;
     }
     else {
-        return undef;
+        return $self;
     }
 
     my $epoch;
@@ -58,7 +61,7 @@ sub parse {
           Time::Local::timegm($second, $minute, $hour, $day, $month - 1, $year);
     };
 
-    return undef if $@ || $epoch < 0;
+    return $self if $@ || $epoch < 0;
 
     $self->epoch($epoch);
     $self->tail($tail) if $tail;
