@@ -23,27 +23,25 @@ sub new {
 }
 
 sub op_identifier {
-    defined $_[1] ? $_[0]->{op_identifier} = $_[1] : $_[0]->{op_identifier};
+    @_ > 1 ? $_[0]->{op_identifier} = $_[1] : $_[0]->{op_identifier};
 }
 
 sub protocol_version {
-    defined $_[1]
-      ? $_[0]->{protocol_version} = $_[1]
-      : $_[0]->{protocol_version};
+    @_ > 1 ? $_[0]->{protocol_version} = $_[1] : $_[0]->{protocol_version};
 }
 
 sub op_endpoint {
-    defined $_[1] ? $_[0]->{op_endpoint} = $_[1] : $_[0]->{op_endpoint};
+    @_ > 1 ? $_[0]->{op_endpoint} = $_[1] : $_[0]->{op_endpoint};
 }
 
 sub claimed_identifier {
-    defined $_[1]
+    @_ > 1
       ? $_[0]->{claimed_identifier} = $_[1]
       : $_[0]->{claimed_identifier};
 }
 
 sub op_local_identifier {
-    defined $_[1]
+    @_ > 1
       ? $_[0]->{op_local_identifier} = $_[1]
       : $_[0]->{op_local_identifier};
 }
