@@ -64,7 +64,7 @@ sub parse {
 sub to_string {
     my $self = shift;
 
-    $self->value;
+    $self->value || '';
 }
 
 1;
