@@ -37,6 +37,7 @@ WriteMakefile(
     ),
 
     PREREQ_PM => {
+        'Digest::SHA1'    => 0,
         'Math::BigInt'    => 0,
         'Protocol::Yadis' => 0,
         'Time::Local'     => 0,
