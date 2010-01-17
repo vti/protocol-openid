@@ -29,7 +29,8 @@ $p->param(foo => 'bar');
 $p->param(baz => 'foo');
 
 is_deeply($p->to_hash, {'foo' => 'bar', 'baz' => 'foo'});
-is_deeply($p->to_hash_prefixed, {'openid.foo' => 'bar', 'openid.baz' => 'foo'});
+is_deeply($p->to_hash(prefixed => 1),
+    {'openid.foo' => 'bar', 'openid.baz' => 'foo'});
 
 $p = Protocol::OpenID::Parameters->new('ns:http://specs.openid.net/auth/2.0');
 is($p->param('ns'), 'http://specs.openid.net/auth/2.0');
@@ -42,19 +43,21 @@ $p->params([]);
 $p->parse('');
 is_deeply($p->params, []);
 
-$p->parse(<<"");
+$p->parse(<<'EOF');
 ns:http://specs.openid.net/auth/2.0
 error:hello
+EOF
 
-is($p->param('ns'), 'http://specs.openid.net/auth/2.0');
+is($p->param('ns'),    'http://specs.openid.net/auth/2.0');
 is($p->param('error'), 'hello');
 
 is($p->to_string, "ns:http://specs.openid.net/auth/2.0\nerror:hello\n");
 
 $p->params([]);
 $p->param(foo => 'bar');
-$p->parse(<<"");
+$p->parse(<<'EOF');
 nsbar
 error:hello
+EOF
 
 is_deeply($p->params, []);

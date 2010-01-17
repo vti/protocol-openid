@@ -79,6 +79,7 @@ sub param {
 
 sub to_hash {
     my $self = shift;
+    my %args = @_;
 
     my $hash = {};
 
@@ -87,23 +88,7 @@ sub to_hash {
     for (my $i = 0; $i < @$params; $i += 2) {
         my $key = $params->[$i];
 
-        $key =~ s/^openid\.//;
-
-        $hash->{$key} = $params->[$i + 1];
-    }
-
-    return $hash;
-}
-
-sub to_hash_prefixed {
-    my $self   = shift;
-
-    my $hash = {};
-
-    my $params = $self->params;
-
-    for (my $i = 0; $i < @$params; $i += 2) {
-        my $key = $params->[$i];
+        $key =~ s/^openid\.// unless $args{prefixed};
 
         $hash->{$key} = $params->[$i + 1];
     }
