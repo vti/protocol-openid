@@ -1,21 +1,17 @@
-use Test::More tests => 14;
+#!/usr/bin/perl
+
 use strict;
 use warnings;
 
-use_ok('Protocol::OpenID::Discovery::HTML');
+use Test::More tests => 17;
 
-use Protocol::OpenID::RP;
-use Protocol::OpenID::Discovery;
+use Protocol::OpenID::Discoverer::HTML;
 use Protocol::OpenID::Identifier;
 
-my $rp = Protocol::OpenID::RP->new(
-    return_to => 'http://foo.bar',
-    http_req_cb => sub {
-        my ($self, $url, $args, $cb) = @_;
+my $http_req_cb = sub {
+        my ($url, $method, $headers, $body, $cb) = @_;
 
-        my $body;
         my $status = 200;
-        my $headers;
 
         if ($url eq 'http://nobody.exampleprovider.com/') {
         }
@@ -89,55 +85,109 @@ foo bar
             $status = 404;
         }
 
-        $cb->($self => $url =>
-              {status => $status, headers => $headers, body => $body});
+        $cb->($url, $status, $headers, $body);
+    };
+
+my $discoverer =
+  Protocol::OpenID::Discoverer::HTML->new(http_req_cb => $http_req_cb);
+
+
+my $identifier = Protocol::OpenID::Identifier->new;
+
+# 404
+$discoverer->discover(
+   $identifier->parse('404.exampleprovider.com') => sub {
+       my ($discoverer, $discovery) = @_;
+
+       ok(not defined $discovery);
+       ok($discoverer->error);
+   }
+);
+
+# No body
+$discoverer->discover(
+    $identifier->parse('nobody.exampleprovider.com') => sub {
+        my ($discoverer, $discovery) = @_;
+
+        ok(not defined $discovery);
+        ok($discoverer->error);
     }
 );
 
-my $identifier = Protocol::OpenID::Identifier->new;
-my $hook = \&Protocol::OpenID::Discovery::HTML::hook;
-my $ctl = Async::Hooks::Ctl->new;
-
-# 404
-$hook->($ctl, [$rp, $identifier->parse('404.exampleprovider.com')]);
-ok(not defined $rp->discovery);
-
-# No body
-$hook->($ctl, [$rp, $identifier->parse('nobody.exampleprovider.com')]);
-ok(not defined $rp->discovery);
-
 # Wrong html
-$hook->($ctl, [$rp, $identifier->parse('wronghtml.exampleprovider.com')]);
-ok(not defined $rp->discovery);
+$discoverer->discover(
+    $identifier->parse('wronghtml.exampleprovider.com') => sub {
+        my ($discoverer, $discovery) = @_;
 
-$hook->($ctl, [$rp, $identifier->parse('http://exampleprovider.com/')]);
-is($rp->discovery->op_endpoint, 'https://exampleprovider.com/server');
-is($rp->discovery->op_local_identifier, 'https://me.exampleprovider.com/');
-$rp->discovery->clear;
+        ok(not defined $discovery);
+        ok($discoverer->error);
+    }
+);
 
-$hook->($ctl, [$rp, $identifier->parse('http://1.1.exampleprovider.com/')]);
-is($rp->discovery->op_endpoint, 'https://exampleprovider.com/server');
-is($rp->discovery->op_local_identifier, 'https://me.exampleprovider.com/');
-$rp->discovery->clear;
+$discoverer->discover(
+   $identifier->parse('http://exampleprovider.com/') => sub {
+       my ($discoverer, $discovery) = @_;
 
-$hook->($ctl, [$rp, $identifier->parse('http://1.1-with-query.exampleprovider.com/')]);
-is($rp->discovery->op_endpoint, 'https://exampleprovider.com/server?foo=bar');
-is($rp->discovery->op_local_identifier, 'http://1.1-with-query.exampleprovider.com/');
-$rp->discovery->clear;
+       ok($discovery);
+       is($discovery->op_endpoint, 'https://exampleprovider.com/server');
+       is($discovery->op_local_identifier,
+           'https://me.exampleprovider.com/');
+   }
+);
 
-$hook->($ctl, [$rp, $identifier->parse('http://multi.exampleprovider.com/')]);
-is($rp->discovery->op_endpoint, 'https://exampleprovider.com/server');
-is($rp->discovery->op_local_identifier, 'http://multi.exampleprovider.com/');
-$rp->discovery->clear;
+$discoverer->discover(
+    $identifier->parse('http://1.1.exampleprovider.com/') => sub {
+        my ($discoverer, $discovery) = @_;
 
-$hook->($ctl, [$rp, $identifier->parse('http://someone.blogspot.com/')]);
-is($rp->discovery->op_endpoint, 'http://www.blogger.com/openid-server.g');
-is($rp->discovery->op_local_identifier, 'http://someone.blogspot.com/');
-$rp->discovery->clear;
+        is( $discovery->op_endpoint,
+            'https://exampleprovider.com/server'
+        );
+        is($discovery->op_local_identifier,
+            'https://me.exampleprovider.com/');
+    }
+);
 
-#$hook->($ctl, [$rp, $identifier->parse('http://1.1.html.exampleprovider.com/')]);
-#$hook->($ctl, [$rp, $identifier->parse('http://1.1-with-query.html.exampleprovider.com/')]);
-#$hook->($ctl, [$rp, $identifier->parse('http://1.1.html2.exampleprovider.com/')]);
+$discoverer->discover(
+    $identifier->parse('http://1.1-with-query.exampleprovider.com/') => sub {
+        my ($discoverer, $discovery) = @_;
 
-#$hook->($ctl, [$rp, $identifier->parse('http://html2.exampleprovider.com/')]);
-#$hook->($ctl, [$rp, $identifier->parse('http://html4.exampleprovider.com/')]);
+        is($discovery->op_endpoint,
+            'https://exampleprovider.com/server?foo=bar'
+        );
+        is($discovery->op_local_identifier,
+            'http://1.1-with-query.exampleprovider.com/'
+        );
+    }
+);
+
+$discoverer->discover(
+    $identifier->parse('http://multi.exampleprovider.com/') => sub {
+        my ($discoverer, $discovery) = @_;
+
+        is($discovery->op_endpoint,
+            'https://exampleprovider.com/server'
+        );
+        is($discovery->op_local_identifier,
+            'http://multi.exampleprovider.com/'
+        );
+    }
+);
+
+$discoverer->discover(
+    $identifier->parse('http://someone.blogspot.com/') => sub {
+        my ($discoverer, $discovery) = @_;
+
+        is($discovery->op_endpoint,
+            'http://www.blogger.com/openid-server.g'
+        );
+        is($discovery->op_local_identifier,
+            'http://someone.blogspot.com/');
+    }
+);
+
+#$discoverer, $identifier->parse('http://1.1.html.exampleprovider.com/')]);
+#$hook->($ctl, [$discoverer, $identifier->parse('http://1.1-with-query.html.exampleprovider.com/')]);
+#$hook->($ctl, [$discoverer, $identifier->parse('http://1.1.html2.exampleprovider.com/')]);
+
+#$discoverer, $identifier->parse('http://html2.exampleprovider.com/')]);
+#$hook->($ctl, [$discoverer, $identifier->parse('http://html4.exampleprovider.com/')]);

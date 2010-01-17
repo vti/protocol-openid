@@ -1,32 +1,39 @@
-package Protocol::OpenID::Discovery::Yadis;
+package Protocol::OpenID::Discoverer::Yadis;
 
 use strict;
 use warnings;
 
+use base 'Protocol::OpenID::Discoverer::Base';
+
+use constant DEBUG => $ENV{PROTOCOL_OPENID_DEBUG} || 0;
+
 use Protocol::Yadis;
 use Protocol::OpenID::Discovery;
 
-sub hook {
-    my ($ctl, $args)       = @_;
-    my ($rp,  $identifier) = @$args;
+sub discover {
+    my $self = shift;
+    my ($identifier, $cb) = @_;
+
+    $self->error('');
 
     # Create Yadis Protocol object passing the same http_req_cb
     # callback that we got from the higher level
-    my $y = Protocol::Yadis->new(http_req_cb => $rp->http_req_cb);
+    my $y = Protocol::Yadis->new(http_req_cb => $self->http_req_cb);
 
     my $url = $identifier->to_string;
-    warn "Discovering Yadis Document at '$url'" if $rp->debug;
+    warn "Discovering Yadis Document at '$url'" if DEBUG;
 
     $y->discover(
         $url,
         sub {
-            my ($y, $rv) = @_;
+            my ($y, $document) = @_;
 
             # Yadis document was found
-            if ($rv eq 'ok') {
-                my $document = $y->document;
+            if ($document) {
 
                 # Convert Yadis Document to OpenID Discovered Info
+
+                warn 'Yadis Document was found' if DEBUG;
 
                 # Find OpenID services
                 my @openid_services =
@@ -44,7 +51,7 @@ sub hook {
                             op_identifier => $url
                         );
 
-                        warn 'Found OP Identifier' if $rp->debug;
+                        warn 'Found OP Identifier' if DEBUG;
                         last;
                     }
 
@@ -65,16 +72,18 @@ sub hook {
                             op_local_identifier => $op_local_identifier
                         );
 
-                        warn 'Found OP Local Identifier' if $rp->debug;
+                        warn 'Found OP Local Identifier' if DEBUG;
                         last;
                     }
-                    elsif ($type =~ m/^http:\/\/openid\.net\/signon\/1\.(0|1)$/) {
+                    elsif (
+                        $type =~ m/^http:\/\/openid\.net\/signon\/1\.(0|1)$/)
+                    {
+
                         # Optional OP Local Identifier
                         my $op_local_identifier = $url;
-                        if (my $local_id =
-                            $service->element('openid:Delegate')->[0])
-                        {
-                            $op_local_identifier = $local_id->content;
+                        my $local_id = $service->element('openid:Delegate');
+                        if ($local_id && $local_id->[0]) {
+                            $op_local_identifier = $local_id->[0]->content;
                         }
 
                         $discovery = Protocol::OpenID::Discovery->new(
@@ -86,31 +95,28 @@ sub hook {
                             : $Protocol::OpenID::Discovery::VERSION_1_0
                         );
 
-                        warn "Found OpenID 1.$1 Identifier" if $rp->debug;
+                        warn "Found OpenID 1.$1 Identifier" if DEBUG;
                         last;
                     }
                 }
 
                 if ($discovery) {
-                    $rp->discovery($discovery);
-                    warn 'Found Discovery Information' if $rp->debug;
+                    warn 'Found Discovery Information' if DEBUG;
 
-                    $ctl->done;
+                    $cb->($self, $discovery);
                 }
                 else {
-                    $rp->error('No services were found');
-                    warn $rp->error if $rp->debug;
+                    $self->error('No services were found');
 
-                    $ctl->next;
+                    $cb->($self);
                 }
             }
 
-            # No Yadis Document was found, thus call the next hook
+            # No Yadis Document was found
             else {
+                $self->error($y->error);
 
-                $rp->error($y->error);
-
-                $ctl->next;
+                $cb->($self);
             }
         }
     );
