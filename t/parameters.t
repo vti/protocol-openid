@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 17;
+use Test::More tests => 21;
 
 use Protocol::OpenID::Parameters;
 
@@ -36,14 +36,14 @@ $p = Protocol::OpenID::Parameters->new('ns:http://specs.openid.net/auth/2.0');
 is($p->param('ns'), 'http://specs.openid.net/auth/2.0');
 
 $p->params([]);
-$p->parse();
+ok(!$p->parse());
 is_deeply($p->params, []);
 
 $p->params([]);
-$p->parse('');
+ok(!$p->parse(''));
 is_deeply($p->params, []);
 
-$p->parse(<<'EOF');
+ok($p->parse(<<'EOF'));
 ns:http://specs.openid.net/auth/2.0
 error:hello
 EOF
@@ -55,7 +55,7 @@ is($p->to_string, "ns:http://specs.openid.net/auth/2.0\nerror:hello\n");
 
 $p->params([]);
 $p->param(foo => 'bar');
-$p->parse(<<'EOF');
+ok(!$p->parse(<<'EOF'));
 nsbar
 error:hello
 EOF

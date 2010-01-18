@@ -33,14 +33,14 @@ sub parse {
 
     $self->params([]);
 
-    return $self unless $content;
+    return unless $content;
 
     my @lines = split("\n", $content);
 
     foreach my $line (@lines) {
         unless ($line =~ m/^(.*?):(.*)/) {
             $self->param([]);
-            return $self;
+            return;
         }
 
         $self->param($1 => $2);
