@@ -7,6 +7,7 @@ use base 'Protocol::OpenID::Discoverer::Base';
 
 use constant DEBUG => $ENV{PROTOCOL_OPENID_DEBUG} || 0;
 
+use Protocol::OpenID;
 use Protocol::OpenID::Discovery;
 
 sub discover {
@@ -54,14 +55,14 @@ sub _http_res_on {
 
     my $links = _html_links(\$head);
 
-    my ($version, $provider, $local_id);
+    my ($ns, $provider, $local_id);
 
     if ($provider = $links->{'openid2.provider'}) {
-        $version = $Protocol::OpenID::Discovery::VERSION_2_0;
+        $ns       = OPENID_VERSION_2_0;
         $local_id = $links->{'openid2.local_id'};
     }
     elsif ($provider = $links->{'openid.server'}) {
-        $version  = $Protocol::OpenID::Discovery::VERSION_1_1;
+        $ns       = OPENID_VERSION_1_1;
         $local_id = $links->{'openid.delegate'};
     }
 
@@ -75,7 +76,7 @@ sub _http_res_on {
         op_endpoint         => $provider,
         claimed_identifier  => $url,
         op_local_identifier => $local_id || $url,
-        protocol_version    => $version
+        ns                  => $ns
     );
 
     return $discovery;

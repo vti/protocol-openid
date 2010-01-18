@@ -8,6 +8,7 @@ use base 'Protocol::OpenID::Discoverer::Base';
 use constant DEBUG => $ENV{PROTOCOL_OPENID_DEBUG} || 0;
 
 use Protocol::Yadis;
+use Protocol::OpenID;
 use Protocol::OpenID::Discovery;
 
 sub discover {
@@ -90,9 +91,9 @@ sub discover {
                             op_endpoint        => $service->URI->[0]->content,
                             claimed_identifier => $url,
                             op_local_identifier => $op_local_identifier,
-                            protocol_version    => $1 == 1
-                            ? $Protocol::OpenID::Discovery::VERSION_1_1
-                            : $Protocol::OpenID::Discovery::VERSION_1_0
+                            ns                  => $1 == 1
+                            ? OPENID_VERSION_1_1
+                            : OPENID_VERSION_1_0
                         );
 
                         warn "Found OpenID 1.$1 Identifier" if DEBUG;

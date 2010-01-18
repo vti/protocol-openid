@@ -3,9 +3,7 @@ package Protocol::OpenID::Discovery;
 use strict;
 use warnings;
 
-our $VERSION_1_0 = 'http://openid.net/signon/1.0';
-our $VERSION_1_1 = 'http://openid.net/signon/1.1';
-our $VERSION_2_0 = 'http://specs.openid.net/auth/2.0';
+use Protocol::OpenID;
 
 sub new {
     my $class = shift;
@@ -13,11 +11,10 @@ sub new {
     my $self = {@_};
     bless $self, $class;
 
-    $self->{protocol_version} ||= $VERSION_2_0;
-    $self->{claimed_identifier}
-      ||= 'http://specs.openid.net/auth/2.0/identifier_select';
-    $self->{op_local_identifier}
-      ||= 'http://specs.openid.net/auth/2.0/identifier_select';
+    $self->{ns} ||= OPENID_VERSION_2_0;
+
+    $self->{claimed_identifier}  ||= OPENID_IDENTIFIER_SELECT;
+    $self->{op_local_identifier} ||= OPENID_IDENTIFIER_SELECT;
 
     return $self;
 }
@@ -26,8 +23,8 @@ sub op_identifier {
     @_ > 1 ? $_[0]->{op_identifier} = $_[1] : $_[0]->{op_identifier};
 }
 
-sub protocol_version {
-    @_ > 1 ? $_[0]->{protocol_version} = $_[1] : $_[0]->{protocol_version};
+sub ns {
+    @_ > 1 ? $_[0]->{ns} = $_[1] : $_[0]->{ns};
 }
 
 sub op_endpoint {
@@ -44,13 +41,6 @@ sub op_local_identifier {
     @_ > 1
       ? $_[0]->{op_local_identifier} = $_[1]
       : $_[0]->{op_local_identifier};
-}
-
-sub clear {
-    my $self = shift;
-
-
-    return $self;
 }
 
 1;
