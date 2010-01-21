@@ -3,14 +3,21 @@
 use strict;
 use warnings;
 
-use Test::More tests => 4;
+use Test::More tests => 7;
 
-use_ok('Protocol::OpenID::Association::Request');
+use Protocol::OpenID;
+use Protocol::OpenID::Association::Request;
 
-my $a = Protocol::OpenID::Association::Request->new;
-ok($a->is_encrypted);
-ok($a->dh_consumer_public);
+my $req = Protocol::OpenID::Association::Request->new;
+$req->build;
+is($req->ns, OPENID_VERSION_2_0);
+is($req->mode, 'associate');
+ok($req->is_encrypted);
+ok($req->dh_consumer_public);
 
-$a = Protocol::OpenID::Association::Request->new;
-$a->session_type('no-encryption');
-ok(!$a->is_encrypted);
+$req = Protocol::OpenID::Association::Request->new;
+$req->session_type('no-encryption');
+$req->build;
+is($req->ns, OPENID_VERSION_2_0);
+is($req->mode, 'associate');
+ok(!$req->is_encrypted);

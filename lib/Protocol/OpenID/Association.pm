@@ -3,37 +3,12 @@ package Protocol::OpenID::Association;
 use strict;
 use warnings;
 
-sub new {
-    my $class = shift;
+use base 'Protocol::OpenID::Message';
 
-    my $self = {@_};
-    bless $self, $class;
-
-    $self->{session_type} ||= '';
-    $self->{assoc_type} ||= '';
-
-    return $self;
-}
-
-sub assoc_handle {
-    @_ > 1 ? $_[0]->{assoc_handle} = $_[1] : $_[0]->{assoc_handle};
-}
-
-sub assoc_type {
-    @_ > 1 ? $_[0]->{assoc_type} = $_[1] : $_[0]->{assoc_type};
-}
-
-sub session_type {
-    @_ > 1 ? $_[0]->{session_type} = $_[1] : $_[0]->{session_type};
-}
-
-sub dh_server_public {
-    @_ > 1
-      ? $_[0]->{dh_server_public} = $_[1]
-      : $_[0]->{dh_server_public};
-}
-
-sub error { @_ > 1 ? $_[0]->{error} = $_[1] : $_[0]->{error} }
+sub assoc_handle     { shift->param(assoc_handle     => @_) }
+sub assoc_type       { shift->param(assoc_type       => @_) }
+sub session_type     { shift->param(session_type     => @_) }
+sub dh_server_public { shift->param(dh_server_public => @_) }
 
 sub is_encrypted {
     my $self = shift;

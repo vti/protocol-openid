@@ -40,8 +40,7 @@ is($res->mode, 'user_setup_url');
 
 $res = Protocol::OpenID::Authentication::Response->new;
 ok($res->from_hash(
-    {   'openid.ns'   => OPENID_VERSION_1_0,
-        'openid.mode' => 'user_setup_url'
+    { 'openid.mode' => 'user_setup_url'
     }));
 is($res->mode, 'user_setup_url');
 

@@ -6,21 +6,49 @@ use warnings;
 use base 'Protocol::OpenID::Authentication';
 
 use Protocol::OpenID;
-use Protocol::OpenID::Identifier;
 
 sub new {
-    my $self = shift->SUPER::new(@_);
+    my $class = shift;
+    my %params = @_;
 
-    $self->{ns} ||= OPENID_VERSION_2_0;
+    my $claimed_identifier = delete $params{claimed_identifier}
+      || OPENID_IDENTIFIER_SELECT;
+    my $op_local_identifier = delete $params{op_local_identifier}
+      || OPENID_IDENTIFIER_SELECT;
 
-    $self->{claimed_identifier}  ||= OPENID_IDENTIFIER_SELECT;
-    $self->{op_local_identifier} ||= OPENID_IDENTIFIER_SELECT;
+    my $self = $class->SUPER::new(%params);
+
+    $self->claimed_identifier($claimed_identifier);
+    $self->op_local_identifier($op_local_identifier);
 
     return $self;
 }
 
-sub immediate_request {
-    @_ > 1 ? $_[0]->{immediate_request} = $_[1] : $_[0]->{immediate_request};
+sub build {
+    my $self = shift;
+
+    $self->mode(
+        $self->immediate_request ? 'checkid_immediate' : 'checkid_setup');
+
+    if ($self->ns) {
+        $self->claimed_id($self->claimed_identifier);
+
+        if (   $self->claimed_id ne OPENID_IDENTIFIER_SELECT
+            && $self->op_local_identifier eq OPENID_IDENTIFIER_SELECT)
+        {
+            $self->identity($self->claimed_id);
+        }
+        else {
+            $self->identity($self->op_local_identifier);
+        }
+
+        $self->realm($self->realm ? $self->realm : $self->return_to);
+    }
+    else {
+        $self->identity($self->op_local_identifier);
+
+        $self->trust_root($self->realm ? $self->realm : $self->return_to);
+    }
 }
 
 sub claimed_identifier {
@@ -35,72 +63,25 @@ sub op_local_identifier {
       : $_[0]->{op_local_identifier};
 }
 
-sub return_to {
-    my $self = shift;
+sub return_to    { shift->param('return_to'    => @_) }
+sub realm        { shift->param('realm'        => @_) }
+sub assoc_handle { shift->param('assoc_handle' => @_) }
+sub claimed_id   { shift->param('claimed_id'   => @_) }
+sub identity     { shift->param('identity'     => @_) }
 
-    if (my $value = shift) {
-        my $identifier = Protocol::OpenID::Identifier->new($value);
+sub trust_root { shift->param('trust_root' => @_) }
 
-        $self->{return_to} = $identifier->to_string;
-
-        return $self;
-    }
-
-    return $self->{return_to};
-}
-
-sub realm {
-    my $self = shift;
-
-    if (my $value = shift) {
-        my $identifier = Protocol::OpenID::Identifier->new($value);
-
-        $self->{realm} = $identifier->to_string;
-
-        return $self;
-    }
-
-    return $self->{realm};
+sub immediate_request {
+    @_ > 1 ? $_[0]->{immediate_request} = $_[1] : $_[0]->{immediate_request};
 }
 
 sub to_hash {
     my $self = shift;
 
-    my $hash = {};
+    my $hash = $self->SUPER::to_hash;
 
-    # Prepare params
-    $hash->{'openid.mode'} =
-      $self->immediate_request
-      ? 'checkid_immediate'
-      : 'checkid_setup';
-
-    $hash->{'openid.return_to'} = $self->return_to if $self->return_to;
-    $hash->{'openid.assoc_handle'} = $self->assoc_handle
-      if $self->assoc_handle;
-
-    if ($self->ns eq OPENID_VERSION_2_0) {
-        $hash->{'openid.ns'}         = $self->ns;
-        $hash->{'openid.claimed_id'} = $self->claimed_identifier;
-
-        if ($self->claimed_identifier ne
-            'http://specs.openid.net/auth/2.0/identifier_select'
-            && $self->op_local_identifier eq
-            'http://specs.openid.net/auth/2.0/identifier_select')
-        {
-            $hash->{'openid.identity'} = $self->claimed_identifier;
-        }
-        else {
-            $hash->{'openid.identity'} = $self->op_local_identifier;
-        }
-
-        $hash->{'openid.realm'} =
-          $self->realm ? $self->realm : $self->return_to;
-    }
-    else {
-        $hash->{'openid.identity'} = $self->op_local_identifier;
-
-        $hash->{'openid.trust_root'} =
-          $self->realm ? $self->realm : $self->return_to;
+    unless ($self->ns) {
+        delete $hash->{'openid.realm'};
     }
 
     return $hash;

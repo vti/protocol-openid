@@ -69,9 +69,9 @@ ns:http://specs.openid.net/auth/2.0
 error:Sorry
 error_code:unsupported-type
 EOF
-is($a->error, 'Sorry');
-is($a->session_type, '');
-is($a->assoc_type, '');
+is($a->param('error'), 'Sorry');
+ok(not defined $a->session_type);
+ok(not defined $a->assoc_type);
 
 $a = Protocol::OpenID::Association::Response->new;
 $a->parse(<<'EOF');
@@ -81,7 +81,7 @@ error_code:unsupported-type
 session_type:DH-SHA256
 assoc_type:HMAC-SHA256
 EOF
-is($a->error, 'Sorry');
+is($a->param('error'), 'Sorry');
 is($a->session_type, 'DH-SHA256');
 is($a->assoc_type, 'HMAC-SHA256');
 

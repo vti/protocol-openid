@@ -1,5 +1,11 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
 use Test::More tests => 3;
 
+use MIME::Base64;
 use Protocol::OpenID::Signature;
 use Protocol::OpenID::Parameters;
 
@@ -37,4 +43,4 @@ is_deeply(
 
 my $signature = $s->calculate('secret');
 is(length $signature, 160 / 8);
-#is(, '');
+#is(MIME::Base64::encode_base64(unpack("H*", $signature)), $params->{'openid.sig'});

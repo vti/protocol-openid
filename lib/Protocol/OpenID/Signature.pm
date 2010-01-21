@@ -18,10 +18,8 @@ sub new {
     return $self;
 }
 
-sub params { defined $_[1] ? $_[0]->{params} = $_[1] : $_[0]->{params} }
-sub algorithm {
-    defined $_[1] ? $_[0]->{algorithm} = $_[1] : $_[0]->{algorithm};
-}
+sub algorithm { @_ > 1 ? $_[0]->{algorithm} = $_[1] : $_[0]->{algorithm}; }
+sub params    { @_ > 1 ? $_[0]->{params}    = $_[1] : $_[0]->{params} }
 
 sub keys {
     my $self = shift;
