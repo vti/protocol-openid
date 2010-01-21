@@ -3,56 +3,24 @@ package Protocol::OpenID::Authentication::DirectResponse;
 use strict;
 use warnings;
 
+use base 'Protocol::OpenID::Message';
+
 use Protocol::OpenID;
-use Protocol::OpenID::Parameters;
 
-sub new {
-    my $class = shift;
-
-    my $self = {@_};
-    bless $self, $class;
-
-    return $self;
-}
-
-sub ns { @_ > 1 ? $_[0]->{ns} = $_[1] : $_[0]->{ns} }
-
-sub is_valid { @_ > 1 ? $_[0]->{is_valid} = $_[1] : $_[0]->{is_valid} }
-
-sub invalidate_handle {
-    @_ > 1 ? $_[0]->{invalidate_handle} = $_[1] : $_[0]->{invalidate_handle};
-}
+sub is_valid          { shift->param(is_valid          => @_) }
+sub invalidate_handle { shift->param(invalidate_handle => @_) }
 
 sub parse {
     my $self = shift;
-    my $data = shift;
 
-    my $params = Protocol::OpenID::Parameters->new;
+    my $ok = $self->SUPER::parse(@_);
+    return unless $ok;
 
-    return unless $params->parse($data);
+    return unless $self->ns && $self->ns eq OPENID_VERSION_2_0;
 
-    return unless $params->param('ns');
+    return unless $self->is_valid && $self->is_valid =~ m/^(?:true|false)$/;
 
-    return unless $params->param('ns') eq OPENID_VERSION_2_0;
-
-    $self->ns($params->param('ns'));
-
-    return unless $params->param('is_valid');
-
-    if ($params->param('is_valid') eq 'true') {
-        $self->is_valid(1);
-    }
-    elsif ($params->param('is_valid') eq 'false') {
-        $self->is_valid(0);
-    }
-    else {
-        return;
-    }
-
-    $self->invalidate_handle($params->param('invalidate_handle'))
-      if $params->param('invalidate_handle');
-
-    return $self;
+    return 1;
 }
 
 1;

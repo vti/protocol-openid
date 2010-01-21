@@ -43,7 +43,7 @@ ns:http://specs.openid.net/auth/2.0
 is_valid:false
 EOF
 is($dir_res->ns, OPENID_VERSION_2_0);
-ok(!$dir_res->is_valid);
+is($dir_res->is_valid, 'false');
 
 $dir_res = Protocol::OpenID::Authentication::DirectResponse->new;
 ok($dir_res->parse(<<'EOF'));
@@ -52,5 +52,5 @@ is_valid:false
 invalidate_handle:FOO
 EOF
 is($dir_res->ns, OPENID_VERSION_2_0);
-ok(!$dir_res->is_valid);
+is($dir_res->is_valid, 'false');
 is($dir_res->invalidate_handle, 'FOO');

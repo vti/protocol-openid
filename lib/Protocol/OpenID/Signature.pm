@@ -3,49 +3,48 @@ package Protocol::OpenID::Signature;
 use strict;
 use warnings;
 
-use Protocol::OpenID::Parameters;
+use Protocol::OpenID::Message;
 use Digest::SHA1 qw(sha1 sha1_hex);
 
 sub new {
     my $class = shift;
+    my $hash  = shift;
 
-    my $self = {@_};
+    my $self = {message => $hash, @_};
     bless $self, $class;
 
-    $self->{params} ||= {};
     $self->{algorithm} ||= 'HMAC-SHA1';
 
     return $self;
 }
 
 sub algorithm { @_ > 1 ? $_[0]->{algorithm} = $_[1] : $_[0]->{algorithm}; }
-sub params    { @_ > 1 ? $_[0]->{params}    = $_[1] : $_[0]->{params} }
 
 sub keys {
     my $self = shift;
 
-    return unless $self->params;
+    return unless $self->{message};
 
-    my $signed = $self->params->{'openid.signed'};
+    my $signed = $self->{message}->{'openid.signed'};
     return unless $signed;
 
     return split(',', $signed);
 }
 
 sub calculate {
-    my $self = shift;
+    my $self   = shift;
     my $secret = shift;
 
     return unless $secret;
 
     my @keys = $self->keys;
 
-    my $params = Protocol::OpenID::Parameters->new;
+    my $message = Protocol::OpenID::Message->new;
     foreach my $key (@keys) {
-        $params->param($key => $self->params->{$key});
+        $message->param($key => $self->{message}->{"openid.$key"});
     }
 
-    my $string = $params->to_string;
+    my $string = $message->to_string;
 
     return _hmac_sha1($string, $secret);
 }
@@ -60,7 +59,7 @@ sub _hmac_sha1 {
 }
 
 sub _hmac {
-    my($data, $key, $hash_func, $block_size) = @_;
+    my ($data, $key, $hash_func, $block_size) = @_;
 
     $block_size ||= 64;
     $key = &$hash_func($key) if length($key) > $block_size;

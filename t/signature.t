@@ -3,15 +3,9 @@
 use strict;
 use warnings;
 
-use Test::More tests => 3;
+use Test::More tests => 2;
 
-use MIME::Base64;
 use Protocol::OpenID::Signature;
-use Protocol::OpenID::Parameters;
-
-my $s = Protocol::OpenID::Signature->new;
-
-is_deeply([$s->keys], []);
 
 my $params = {
     'openid.response_nonce' => '2009-03-29T22:26:35Z0610',
@@ -27,7 +21,7 @@ my $params = {
     'openid.return_to'   => 'http://myserver.com/'
 };
 
-$s->params($params);
+my $s = Protocol::OpenID::Signature->new($params);
 
 is_deeply(
     [$s->keys],
@@ -43,4 +37,3 @@ is_deeply(
 
 my $signature = $s->calculate('secret');
 is(length $signature, 160 / 8);
-#is(MIME::Base64::encode_base64(unpack("H*", $signature)), $params->{'openid.sig'});
