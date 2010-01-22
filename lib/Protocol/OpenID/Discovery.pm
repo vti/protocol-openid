@@ -43,4 +43,37 @@ sub op_local_identifier {
       : $_[0]->{op_local_identifier};
 }
 
+sub to_hash {
+    my $self = shift;
+
+    my $hash = {};
+
+    $hash->{ns}                  = $self->ns if $self->ns;
+    $hash->{claimed_identifier}  = $self->claimed_identifier;
+    $hash->{op_local_identifier} = $self->op_local_identifier;
+    $hash->{op_identifier}       = $self->op_identifier
+      if $self->op_identifier;
+    $hash->{op_endpoint} = $self->op_endpoint if $self->op_endpoint;
+
+    return $hash;
+}
+
+sub from_hash {
+    my $self = shift;
+    my $hash = shift;
+
+    foreach my $method (
+        qw/
+        ns
+        claimed_identifier
+        op_local_identifier
+        op_identifier
+        op_endpoint
+        /
+      )
+    {
+        $self->$method($hash->{$method}) if $hash->{$method};
+    }
+}
+
 1;
