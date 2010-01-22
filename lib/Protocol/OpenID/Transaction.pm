@@ -1,4 +1,4 @@
-package Protocol::OpenID::Discovery;
+package Protocol::OpenID::Transaction;
 
 use strict;
 use warnings;
@@ -17,6 +17,30 @@ sub new {
     $self->{op_local_identifier} ||= OPENID_IDENTIFIER_SELECT;
 
     return $self;
+}
+
+sub identifier {
+    @_ > 1 ? $_[0]->{identifier} = $_[1] : $_[0]->{identifier};
+}
+
+sub request {
+    @_ > 1 ? $_[0]->{request} = $_[1] : $_[0]->{request};
+}
+
+sub response {
+    @_ > 1 ? $_[0]->{response} = $_[1] : $_[0]->{response};
+}
+
+sub state {
+    @_ > 1 ? $_[0]->{state} = $_[1] : $_[0]->{state};
+}
+
+sub association {
+    @_ > 1 ? $_[0]->{association} = $_[1] : $_[0]->{association};
+}
+
+sub error {
+    @_ > 1 ? $_[0]->{error} = $_[1] : $_[0]->{error};
 }
 
 sub op_identifier {

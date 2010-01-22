@@ -3,17 +3,16 @@
 use Test::More tests => 3;
 
 use Protocol::OpenID::Discoverer::Yadis;
-use Protocol::OpenID::Identifier;
+use Protocol::OpenID::Transaction;
 
-my $discoverer = Protocol::OpenID::Discoverer::Yadis->new(
-    http_req_cb =>
+my $tx = Protocol::OpenID::Transaction->new;
 
-      sub {
-        my ($url, $method, $headers, $body, $cb) = @_;
+my $http_req_cb = sub {
+    my ($url, $method, $headers, $body, $cb) = @_;
 
-        $headers = {'Content-Type' => 'application/xrds+xml'};
+    $headers = {'Content-Type' => 'application/xrds+xml'};
 
-        $body = <<'';
+    $body = <<'EOF';
 <?xml version="1.0" encoding="UTF-8"?>
 <xrds:XRDS xmlns:xrds="xri://$xrds" xmlns="xri://$xrd*($v*2.0)"
    xmlns:openid="http://openid.net/xmlns/1.0">
@@ -25,36 +24,35 @@ my $discoverer = Protocol::OpenID::Discoverer::Yadis->new(
   </Service>
  </XRD>
 </xrds:XRDS>
+EOF
 
-        $cb->($url, 200, $headers, $body);
+    $cb->($url, 200, $headers, $body);
+};
+
+$tx = Protocol::OpenID::Transaction->new;
+Protocol::OpenID::Discoverer::Yadis->discover(
+    $http_req_cb => $tx => sub {
+        my $tx = shift;
+
+        ok(!$tx->ns);
+        is($tx->op_endpoint, 'http://www.myopenid.com/server');
     }
 );
 
-$discoverer->discover(
-    Protocol::OpenID::Identifier->new('foo.com') => sub {
-        my ($discoverer, $discovery) = @_;
+$http_req_cb = sub {
+    my ($url, $method, $headers, $body, $cb) = @_;
 
-        ok($discovery);
-    }
-);
+    $headers = {'Content-Type' => 'application/xrds+xml'};
 
-$discoverer->http_req_cb(
-    sub {
-        my ($url, $method, $headers, $body, $cb) = @_;
+    $body = 'foo';
 
-        $headers = {'Content-Type' => 'application/xrds+xml'};
+    $cb->($url, 200, $headers, $body);
+};
 
-        $body = 'foo';
+Protocol::OpenID::Discoverer::Yadis->discover(
+    $http_req_cb => $tx => sub {
+        my $tx = shift;
 
-        $cb->($url, 200, $headers, $body);
-    }
-);
-
-$discoverer->discover(
-    Protocol::OpenID::Identifier->new('foo.com') => sub {
-        my ($discoverer, $discovery) = @_;
-
-        ok(not defined $discovery);
-        ok($discoverer->error);
+        is($tx->error, '');
     }
 );

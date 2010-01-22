@@ -3,30 +3,24 @@ package Protocol::OpenID::Discoverer::Yadis;
 use strict;
 use warnings;
 
-use base 'Protocol::OpenID::Discoverer::Base';
-
 use constant DEBUG => $ENV{PROTOCOL_OPENID_DEBUG} || 0;
 
-use Protocol::Yadis;
 use Protocol::OpenID;
-use Protocol::OpenID::Discovery;
+use Protocol::Yadis;
 
 sub discover {
-    my $self = shift;
-    my ($identifier, $cb) = @_;
-
-    $self->error('');
+    my $class = shift;
+    my ($http_req_cb, $tx, $cb) = @_;
 
     # Create Yadis Protocol object passing the same http_req_cb
     # callback that we got from the higher level
-    my $y = Protocol::Yadis->new(http_req_cb => $self->http_req_cb);
+    my $y = Protocol::Yadis->new(http_req_cb => $http_req_cb);
 
-    my $url = $identifier->to_string;
+    my $url = $tx->identifier;
     warn "Discovering Yadis Document at '$url'" if DEBUG;
 
     $y->discover(
-        $url,
-        sub {
+        $url => sub {
             my ($y, $document) = @_;
 
             # Yadis document was found
@@ -41,18 +35,17 @@ sub discover {
                   grep { $_->Type->[0]->content =~ m/openid\.net/ }
                   @{$document->services};
 
-                my $discovery;
+                my $found;
                 foreach my $service (@openid_services) {
                     my $type = $service->Type->[0]->content;
 
                     # OP Identifier
                     if ($type eq 'http://specs.openid.net/auth/2.0/server') {
-                        $discovery = Protocol::OpenID::Discovery->new(
-                            op_endpoint   => $service->URI->[0]->content,
-                            op_identifier => $url
-                        );
+                        $tx->op_endpoint($service->URI->[0]->content);
+                        $tx->op_identifier($url);
 
                         warn 'Found OP Identifier' if DEBUG;
+                        $found++;
                         last;
                     }
 
@@ -67,13 +60,12 @@ sub discover {
                             $op_local_identifier = $local_id->content;
                         }
 
-                        $discovery = Protocol::OpenID::Discovery->new(
-                            op_endpoint        => $service->URI->[0]->content,
-                            claimed_identifier => $url,
-                            op_local_identifier => $op_local_identifier
-                        );
+                        $tx->op_endpoint($service->URI->[0]->content);
+                        $tx->claimed_identifier($url);
+                        $tx->op_local_identifier($op_local_identifier);
 
                         warn 'Found OP Local Identifier' if DEBUG;
+                        $found++;
                         last;
                     }
                     elsif (
@@ -87,37 +79,34 @@ sub discover {
                             $op_local_identifier = $local_id->[0]->content;
                         }
 
-                        $discovery = Protocol::OpenID::Discovery->new(
-                            op_endpoint        => $service->URI->[0]->content,
-                            claimed_identifier => $url,
-                            op_local_identifier => $op_local_identifier,
-                            ns                  => $1 == 1
-                            ? OPENID_VERSION_1_1
-                            : OPENID_VERSION_1_0
-                        );
+                        $tx->ns(undef);
+                        $tx->op_endpoint($service->URI->[0]->content);
+                        $tx->claimed_identifier($url);
+                        $tx->op_local_identifier($op_local_identifier);
 
                         warn "Found OpenID 1.$1 Identifier" if DEBUG;
+                        $found++;
                         last;
                     }
                 }
 
-                if ($discovery) {
+                if ($found) {
                     warn 'Found Discovery Information' if DEBUG;
 
-                    $cb->($self, $discovery);
+                    $cb->($tx);
                 }
                 else {
-                    $self->error('No services were found');
+                    $tx->error('No services were found');
 
-                    $cb->($self);
+                    $cb->($tx);
                 }
             }
 
             # No Yadis Document was found
             else {
-                $self->error($y->error);
+                $tx->error($y->error);
 
-                $cb->($self);
+                $cb->($tx);
             }
         }
     );

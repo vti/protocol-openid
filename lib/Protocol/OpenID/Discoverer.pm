@@ -3,91 +3,44 @@ package Protocol::OpenID::Discoverer;
 use strict;
 use warnings;
 
-use constant DEBUG => $ENV{PROTOCOL_OPENID_DEBUG} || 0;
-
 use Protocol::OpenID::Discoverer::HTML;
 
 # Yadis discovery requires Protocol::Yadis
-use constant YADIS => eval { require Protocol::OpenID::Discoverer::Yadis; 1 };
-
-sub new {
-    my $class = shift;
-
-    my $self = {@_};
-    bless $self, $class;
-
-    return $self;
-}
-
-sub http_req_cb {
-    @_ > 1 ? $_[0]->{http_req_cb} = $_[1] : $_[0]->{http_req_cb};
-}
-
-sub error {
-    my $self = shift;
-
-    if (@_) {
-        $self->{error} = $_[0];
-        warn "Error: " . ($self->{error} || 'Unknown') if DEBUG;
-    }
-    else {
-        return $self->{error};
-    }
-}
+use constant HAVE_YADIS => eval { require Protocol::OpenID::Discoverer::Yadis; 1 };
 
 sub discover {
-    my $self = shift;
-    my ($identifier, $cb) = @_;
+    my $class = shift;
+    my ($http_req_cb, $tx, $cb) = @_;
 
-    $self->error('');
+    if (HAVE_YADIS) {
+        Protocol::OpenID::Discoverer::Yadis->discover(
+            $http_req_cb,
+            $tx => sub {
+                my $tx = shift;
 
-    die 'Identifier is required' unless $identifier;
+                return $cb->($tx) unless $tx->error;
 
-    $self->_yadis_discover(
-        $identifier => sub {
-            my ($discoverer, $discovery) = @_;
+                Protocol::OpenID::Discoverer::HTML->discover(
+                    $http_req_cb,
+                    $tx => sub {
+                        my $tx = shift;
 
-            return $cb->($self, $discovery) if $discovery;
+                        return $cb->($tx);
+                    }
+                );
+            }
+        );
+    }
+    else {
+        Protocol::OpenID::Discoverer::HTML->discover(
+            $http_req_cb,
+            $tx => sub {
+                my $tx = shift;
 
-            $self->error($discoverer->error);
-
-            $self->_html_discover(
-                $identifier => sub {
-                    my ($discoverer, $discovery) = @_;
-
-                    return $cb->($self, $discovery) if $discovery;
-
-                    $self->error($discoverer->error);
-
-                    return $cb->($self);
-                }
-            );
-        }
-    );
-}
-
-sub _yadis_discover {
-    my $self = shift;
-    my ($identifier, $cb) = @_;
-
-    return $cb->($self) unless YADIS;
-
-    my $yadis =
-      Protocol::OpenID::Discoverer::Yadis->new(
-        http_req_cb => $self->http_req_cb);
-
-    $yadis->discover($identifier => sub { $cb->(@_); });
-}
-
-sub _html_discover {
-    my $self = shift;
-    my ($identifier, $cb) = @_;
-
-    my $html =
-      Protocol::OpenID::Discoverer::HTML->new(
-        http_req_cb => $self->http_req_cb);
-
-    $html->discover($identifier => sub { $cb->(@_); });
+                return $cb->($tx);
+            }
+        );
+    }
 }
 
 1;

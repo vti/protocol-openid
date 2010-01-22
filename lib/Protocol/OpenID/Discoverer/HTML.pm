@@ -3,83 +3,68 @@ package Protocol::OpenID::Discoverer::HTML;
 use strict;
 use warnings;
 
-use base 'Protocol::OpenID::Discoverer::Base';
-
 use constant DEBUG => $ENV{PROTOCOL_OPENID_DEBUG} || 0;
 
 use Protocol::OpenID;
-use Protocol::OpenID::Discovery;
 
 sub discover {
-    my $self = shift;
-    my ($identifier, $cb) = @_;
+    my $class = shift;
+    my ($http_req_cb, $tx, $cb) = @_;
 
-    $self->error('');
-
-    my $url = $identifier->to_string;
+    my $url = $tx->identifier;
     warn "Discovering HTML Document at '$url'" if DEBUG;
 
-    $self->http_req_cb->(
+    $http_req_cb->(
         $url => 'GET' => {Accept => '*/*'} => '' => sub {
             my ($url, $status, $headers, $body) = @_;
 
-            my $discovery =
-              $self->_http_res_on($url, $status, $headers, $body);
+            _http_res_on($tx, $url, $status, $headers, $body);
 
-            return $cb->($self, $discovery) if !$self->error && $discovery;
-
-            # Nothing was discovered in HTML
-            return $cb->($self);
+            return $cb->($tx);
         }
     );
 }
 
 sub _http_res_on {
-    my ($self, $url, $status, $headers, $body) = @_;
+    my ($tx, $url, $status, $headers, $body) = @_;
 
     unless ($status && $status == 200) {
-        $self->error("Wrong response status: $status");
+        $tx->error("Wrong $status response status");
         return;
     }
 
     unless ($body) {
-        $self->error('No body');
+        $tx->error('No body');
         return;
     }
 
     my ($head) = ($body =~ m/<\s*head\s*>(.*?)<\/\s*head\s*>/is);
     unless ($head) {
-        $self->error('No <head>');
+        $tx->error('No <head>');
         return;
     }
 
     my $links = _html_links(\$head);
 
-    my ($ns, $provider, $local_id);
+    my ($provider, $local_id);
 
     if ($provider = $links->{'openid2.provider'}) {
-        $ns       = OPENID_VERSION_2_0;
         $local_id = $links->{'openid2.local_id'};
     }
     elsif ($provider = $links->{'openid.server'}) {
-        $ns       = OPENID_VERSION_1_1;
+        $tx->ns(undef);
         $local_id = $links->{'openid.delegate'};
     }
 
     # openid2.provider is required
     unless ($provider) {
-        $self->error('No provider found');
+        $tx->error('No provider found');
         return;
     }
 
-    my $discovery = Protocol::OpenID::Discovery->new(
-        op_endpoint         => $provider,
-        claimed_identifier  => $url,
-        op_local_identifier => $local_id || $url,
-        ns                  => $ns
-    );
-
-    return $discovery;
+    $tx->op_endpoint($provider);
+    $tx->claimed_identifier($url);
+    $tx->op_local_identifier($local_id || $url);
 }
 
 sub _html_links {

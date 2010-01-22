@@ -3,48 +3,138 @@
 use strict;
 use warnings;
 
-use Test::More tests => 17;
+use Test::More tests => 14;
 
+use Protocol::OpenID::Transaction;
 use Protocol::OpenID::Discoverer::HTML;
-use Protocol::OpenID::Identifier;
 
-my $http_req_cb = sub {
+# 404
+my $tx = Protocol::OpenID::Transaction->new;
+Protocol::OpenID::Discoverer::HTML->discover(
+    sub {
         my ($url, $method, $headers, $body, $cb) = @_;
 
-        my $status = 200;
+        $cb->($url, 404, $headers, $body);
+      } => $tx => sub {
+        my $tx = shift;
 
-        if ($url eq 'http://nobody.exampleprovider.com/') {
-        }
-        elsif ($url eq 'http://wronghtml.exampleprovider.com/') {
-            $body = <<'';
-foo bar
+        is($tx->error, 'Wrong 404 response status');
+    }
+);
 
-        }
-        elsif ($url eq 'http://exampleprovider.com/') {
-            $body = <<'';
+# No body
+$tx = Protocol::OpenID::Transaction->new;
+Protocol::OpenID::Discoverer::HTML->discover(
+    sub {
+        my ($url, $method, $headers, $body, $cb) = @_;
+
+        $cb->($url, 200, $headers, '');
+      } => $tx => sub {
+        my $tx = shift;
+
+        is($tx->error, 'No body');
+    }
+);
+
+# No head
+$tx = Protocol::OpenID::Transaction->new;
+Protocol::OpenID::Discoverer::HTML->discover(
+    sub {
+        my ($url, $method, $headers, $body, $cb) = @_;
+
+        $cb->($url, 200, $headers, 'foo bar');
+      } => $tx => sub {
+        my $tx = shift;
+
+        is($tx->error, 'No <head>');
+    }
+);
+
+# Wrong html
+$tx = Protocol::OpenID::Transaction->new;
+Protocol::OpenID::Discoverer::HTML->discover(
+    sub {
+        my ($url, $method, $headers, $body, $cb) = @_;
+
+        $cb->($url, 200, $headers, <<'EOF');
+<head>
+    <lik rel="oenid2.provider" hef="https://exampleprovider.om/server" />
+</head>
+EOF
+      } => $tx => sub {
+        my $tx = shift;
+
+        is($tx->error, 'No provider found');
+    }
+);
+
+# OpenID 2.0
+$tx = Protocol::OpenID::Transaction->new;
+Protocol::OpenID::Discoverer::HTML->discover(
+    sub {
+        my ($url, $method, $headers, $body, $cb) = @_;
+
+        $cb->($url, 200, $headers, <<'EOF');
 <head>
     <link rel="openid2.provider" href="https://exampleprovider.com/server" />
     <link rel="openid2.local_id" href="https://me.exampleprovider.com/" />
 </head>
+EOF
+      } => $tx => sub {
+        my $tx = shift;
 
-        }
-        elsif ($url eq 'http://1.1.exampleprovider.com/') {
-            $body = <<'';
+        is($tx->op_endpoint,         'https://exampleprovider.com/server');
+        is($tx->op_local_identifier, 'https://me.exampleprovider.com/');
+    }
+);
+
+# OpenID 1.1
+$tx = Protocol::OpenID::Transaction->new;
+Protocol::OpenID::Discoverer::HTML->discover(
+    sub {
+        my ($url, $method, $headers, $body, $cb) = @_;
+
+        $cb->($url, 200, $headers, <<'EOF');
 <head>
     <link rel="openid.server" href="https://exampleprovider.com/server" />
     <link rel="openid.delegate" href="https://me.exampleprovider.com/" />
 </head>
+EOF
+      } => $tx => sub {
+        my $tx = shift;
 
-        }
-        elsif ($url eq 'http://1.1-with-query.exampleprovider.com/') {
-            $body = <<'';
+        is($tx->op_endpoint,         'https://exampleprovider.com/server');
+        is($tx->op_local_identifier, 'https://me.exampleprovider.com/');
+    }
+);
+
+# OpenID 1.1 with query
+$tx = Protocol::OpenID::Transaction->new;
+Protocol::OpenID::Discoverer::HTML->discover(
+    sub {
+        my ($url, $method, $headers, $body, $cb) = @_;
+
+        $cb->('http://1.1-with-query.exampleprovider.com/', 200, $headers, <<'EOF');
 <head>
     <link rel="openid.server" href="https://exampleprovider.com/server?foo=bar" />
 </head>
+EOF
+      } => $tx => sub {
+        my $tx = shift;
 
-        }
-        elsif ($url eq 'http://someone.blogspot.com/') {
-            $body = <<'';
+        is($tx->op_endpoint, 'https://exampleprovider.com/server?foo=bar');
+        is($tx->op_local_identifier,
+            'http://1.1-with-query.exampleprovider.com/');
+    }
+);
+
+# Real life
+$tx = Protocol::OpenID::Transaction->new;
+Protocol::OpenID::Discoverer::HTML->discover(
+    sub {
+        my ($url, $method, $headers, $body, $cb) = @_;
+
+        $cb->('http://someone.blogspot.com/', 200, $headers, <<'EOF');
 <head>
 <script type="text/javascript">(function() { var a=window;function d(){this.t={};this.tick=function(b,c){this.t[b]=[(new Date).getTime(),c]};this.tick("start")}var e=new d;a.jstiming={Timer:d,load:e};try{a.jstiming.pt=a.external.pageT}catch(f){};function g(b){var c=0;if(b.offsetParent){do c+=b.offsetTop;while(b=b.offsetParent)}return c}a.tickAboveFold=function(b){g(b)<=750&&a.jstiming.load.tick("aft")};var h=false;function i(){if(!h){h=true;a.jstiming.load.tick("firstScrollTime")}}a.addEventListener?a.addEventListener("scroll",i,false):a.attachEvent("onscroll",i); })();</script>
 <meta content='text/html; charset=UTF-8' http-equiv='Content-Type'/>
@@ -58,136 +148,30 @@ foo bar
 <link rel="me" href="http://www.blogger.com/profile/02408119773154487013" />
 <link rel="openid.server" href="http://www.blogger.com/openid-server.g" />
 </head>
+EOF
+      } => $tx => sub {
+        my $tx = shift;
 
-        }
-        #elsif ($url eq 'http://1.1.html2.exampleprovider.com/') {
-            #$body = <<'';
-#<head>
-    #<link rel="openid.server" href="https://www.exampleprovider.com/" />
-#</head>
+        is($tx->op_endpoint, 'http://www.blogger.com/openid-server.g');
+        is($tx->op_local_identifier, 'http://someone.blogspot.com/');
+    }
+);
 
-        #}
-        #elsif ($url eq 'http://html2.exampleprovider.com/') {
-            #$body = <<'';
-#<head>
-    #<link rel="openid2.provider" href="https://www.exampleprovider.com/" />
-#</head>
+# Multi links
+$tx = Protocol::OpenID::Transaction->new;
+Protocol::OpenID::Discoverer::HTML->discover(
+    sub {
+        my ($url, $method, $headers, $body, $cb) = @_;
 
-        #}
-        elsif ($url eq 'http://multi.exampleprovider.com/') {
-            $body = <<'';
+        $cb->('http://multi.exampleprovider.com/', 200, $headers, <<'EOF');
 <head>
     <link rel="openid2.provider openid.server" href="https://exampleprovider.com/server" />
 </head>
+EOF
+      } => $tx => sub {
+        my $tx = shift;
 
-        }
-        else {
-            $status = 404;
-        }
-
-        $cb->($url, $status, $headers, $body);
-    };
-
-my $discoverer =
-  Protocol::OpenID::Discoverer::HTML->new(http_req_cb => $http_req_cb);
-
-
-my $identifier = Protocol::OpenID::Identifier->new;
-
-# 404
-$discoverer->discover(
-   $identifier->parse('404.exampleprovider.com') => sub {
-       my ($discoverer, $discovery) = @_;
-
-       ok(not defined $discovery);
-       ok($discoverer->error);
-   }
-);
-
-# No body
-$discoverer->discover(
-    $identifier->parse('nobody.exampleprovider.com') => sub {
-        my ($discoverer, $discovery) = @_;
-
-        ok(not defined $discovery);
-        ok($discoverer->error);
+        is($tx->op_endpoint,         'https://exampleprovider.com/server');
+        is($tx->op_local_identifier, 'http://multi.exampleprovider.com/');
     }
 );
-
-# Wrong html
-$discoverer->discover(
-    $identifier->parse('wronghtml.exampleprovider.com') => sub {
-        my ($discoverer, $discovery) = @_;
-
-        ok(not defined $discovery);
-        ok($discoverer->error);
-    }
-);
-
-$discoverer->discover(
-   $identifier->parse('http://exampleprovider.com/') => sub {
-       my ($discoverer, $discovery) = @_;
-
-       ok($discovery);
-       is($discovery->op_endpoint, 'https://exampleprovider.com/server');
-       is($discovery->op_local_identifier,
-           'https://me.exampleprovider.com/');
-   }
-);
-
-$discoverer->discover(
-    $identifier->parse('http://1.1.exampleprovider.com/') => sub {
-        my ($discoverer, $discovery) = @_;
-
-        is( $discovery->op_endpoint,
-            'https://exampleprovider.com/server'
-        );
-        is($discovery->op_local_identifier,
-            'https://me.exampleprovider.com/');
-    }
-);
-
-$discoverer->discover(
-    $identifier->parse('http://1.1-with-query.exampleprovider.com/') => sub {
-        my ($discoverer, $discovery) = @_;
-
-        is($discovery->op_endpoint,
-            'https://exampleprovider.com/server?foo=bar'
-        );
-        is($discovery->op_local_identifier,
-            'http://1.1-with-query.exampleprovider.com/'
-        );
-    }
-);
-
-$discoverer->discover(
-    $identifier->parse('http://multi.exampleprovider.com/') => sub {
-        my ($discoverer, $discovery) = @_;
-
-        is($discovery->op_endpoint,
-            'https://exampleprovider.com/server'
-        );
-        is($discovery->op_local_identifier,
-            'http://multi.exampleprovider.com/'
-        );
-    }
-);
-
-$discoverer->discover(
-    $identifier->parse('http://someone.blogspot.com/') => sub {
-        my ($discoverer, $discovery) = @_;
-
-        is($discovery->op_endpoint,
-            'http://www.blogger.com/openid-server.g'
-        );
-        is($discovery->op_local_identifier,
-            'http://someone.blogspot.com/');
-    }
-);
-
-#$discoverer, $identifier->parse('http://1.1.html.exampleprovider.com/')]);
-#$hook->($ctl, [$discoverer, $identifier->parse('http://1.1-with-query.html.exampleprovider.com/')]);
-#$hook->($ctl, [$discoverer, $identifier->parse('http://1.1.html2.exampleprovider.com/')]);
-
-#$discoverer, $identifier->parse('http://html2.exampleprovider.com/')]);
-#$hook->($ctl, [$discoverer, $identifier->parse('http://html4.exampleprovider.com/')]);
