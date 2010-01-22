@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 42;
+use Test::More tests => 28;
 
 use Protocol::OpenID;
 use Protocol::OpenID::Nonce;
@@ -25,7 +25,6 @@ is_deeply(
         'openid.mode' => 'setup_needed',
     }
 );
-ok($res->is_setup_needed);
 
 $res = Protocol::OpenID::Authentication::Response->new;
 ok( !$res->from_hash(
@@ -34,14 +33,11 @@ ok( !$res->from_hash(
         }
     )
 );
-ok($res->is_error);
 is($res->error, 'Unknown mode');
 
 $res = Protocol::OpenID::Authentication::Response->new;
 ok($res->from_hash({'openid.mode' => 'user_setup_url'}));
 is($res->mode, 'user_setup_url');
-ok($res->is_setup_needed);
-ok($res->is_user_setup_url);
 
 $res = Protocol::OpenID::Authentication::Response->new;
 ok( $res->from_hash(
@@ -51,7 +47,6 @@ ok( $res->from_hash(
     )
 );
 is($res->mode, 'cancel');
-ok($res->is_canceled);
 
 $res = Protocol::OpenID::Authentication::Response->new;
 ok( !$res->from_hash(
@@ -60,7 +55,6 @@ ok( !$res->from_hash(
         },
     )
 );
-ok($res->is_error);
 is($res->error, 'Return to is missing');
 
 $res = Protocol::OpenID::Authentication::Response->new;
@@ -71,7 +65,6 @@ ok( !$res->from_hash(
         },
     )
 );
-ok($res->is_error);
 is($res->error, 'OP Endpoint is missing');
 
 $res = Protocol::OpenID::Authentication::Response->new;
@@ -83,7 +76,6 @@ ok( !$res->from_hash(
         },
     )
 );
-ok($res->is_error);
 is($res->error, 'Nonce is missing');
 
 $res = Protocol::OpenID::Authentication::Response->new;
@@ -96,7 +88,6 @@ ok( !$res->from_hash(
         },
     )
 );
-ok($res->is_error);
 is($res->error, 'Nonce is too old');
 
 $res = Protocol::OpenID::Authentication::Response->new;
@@ -109,7 +100,6 @@ ok( !$res->from_hash(
         },
     )
 );
-ok($res->is_error);
 is($res->error, 'Nonce is in the future');
 
 $res = Protocol::OpenID::Authentication::Response->new;
@@ -125,7 +115,6 @@ ok( !$res->from_hash(
         }
     )
 );
-ok($res->is_error);
 is($res->error, 'Association handle is missing');
 
 $res = Protocol::OpenID::Authentication::Response->new;
@@ -142,7 +131,6 @@ ok( !$res->from_hash(
         }
     )
 );
-ok($res->is_error);
 is($res->error, 'Signed is missing');
 
 $res = Protocol::OpenID::Authentication::Response->new;
@@ -160,7 +148,6 @@ ok( !$res->from_hash(
         }
     )
 );
-ok($res->is_error);
 is($res->error, 'Sig is missing');
 
 $res = Protocol::OpenID::Authentication::Response->new;
@@ -179,7 +166,6 @@ ok( $res->from_hash(
     )
 );
 is($res->mode, 'id_res');
-ok($res->is_success);
 
 is_deeply(
     $res->to_hash,

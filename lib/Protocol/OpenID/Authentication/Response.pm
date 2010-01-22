@@ -17,16 +17,6 @@ sub sig            { shift->param('sig'            => @_) }
 sub response_nonce { shift->param('response_nonce' => @_) }
 sub op_endpoint    { shift->param('op_endpoint'    => @_) }
 
-sub is_error { shift->error ? 1 : 0 }
-sub is_success  { shift->mode eq 'id_res' }
-sub is_canceled { shift->mode eq 'cancel' }
-
-sub is_setup_needed {
-    $_[0]->mode eq 'setup_needed' || $_[0]->mode eq 'user_setup_url';
-}
-
-sub is_user_setup_url { shift->mode eq 'user_setup_url' }
-
 sub invalidate_handle {
     @_ > 1 ? $_[0]->{invalidate_handle} = $_[1] : $_[0]->{invalidate_handle};
 }
