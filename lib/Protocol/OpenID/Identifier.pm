@@ -5,6 +5,8 @@ use warnings;
 
 use overload '""' => sub { shift->to_string }, fallback => 1;
 
+my $URL_RE = qr/https?:\/\/[-_.!~*'()a-zA-Z0-9;\/?:\@&=+\$,%]+/;
+
 sub new {
     my $class = shift;
 
@@ -12,11 +14,6 @@ sub new {
     bless $self, $class;
 
     $self->{value} = '';
-
-    my $value = shift;
-    if (defined $value) {
-        $self->parse($value);
-    }
 
     $self->{type} ||= 'URL';
 
@@ -30,7 +27,7 @@ sub parse {
     my $self = shift;
     my $value = shift;
 
-    return $self unless $value;
+    return unless $value;
 
     $value =~ s/^xri:\/\///;
 
@@ -54,11 +51,14 @@ sub parse {
         $value .= '/' unless $path;
 
         $value .= $path if $path;
+
+        return unless $value =~ /^$URL_RE$/;
+
     }
 
     $self->value($value);
 
-    return $self;
+    return 1;
 }
 
 sub to_string {
