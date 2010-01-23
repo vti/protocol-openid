@@ -104,7 +104,7 @@ sub discover {
 
             # No Yadis Document was found
             else {
-                $tx->error($y->error);
+                $tx->error($y->error || 'No Yadis document was found');
 
                 $cb->($tx);
             }
