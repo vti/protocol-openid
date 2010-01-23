@@ -4,12 +4,18 @@ use strict;
 use warnings;
 
 use Protocol::OpenID;
-use Protocol::OpenID::Nonce;
+use Protocol::OpenID::Transaction;
 use Protocol::OpenID::Identifier;
-use Protocol::OpenID::Parameters;
 use Protocol::OpenID::Discoverer;
+use Protocol::OpenID::Signature;
+use Protocol::OpenID::Association::Request;
+use Protocol::OpenID::Association::Response;
 use Protocol::OpenID::Authentication::Request;
 use Protocol::OpenID::Authentication::Response;
+use Protocol::OpenID::Authentication::DirectRequest;
+use Protocol::OpenID::Authentication::DirectResponse;
+
+use constant DEBUG => $ENV{PROTOCOL_OPENID_DEBUG} ? 1 : 0;
 
 sub http_req_cb {
     @_ > 1 ? $_[0]->{http_req_cb} = $_[1] : $_[0]->{http_req_cb};
@@ -23,35 +29,57 @@ sub remove_cb {
     @_ > 1 ? $_[0]->{remove_cb} = $_[1] : $_[0]->{remove_cb};
 }
 
-sub immediate_request {
-    @_ > 1
-      ? $_[0]->{immediate_request} = $_[1]
-      : $_[0]->{immediate_request};
-}
-
 sub _return_to {
     @_ > 1 ? $_[0]->{_return_to} = $_[1] : $_[0]->{_return_to};
 }
 
 sub _realm { @_ > 1 ? $_[0]->{_realm} = $_[1] : $_[0]->{_realm} }
 
-sub discoverer {
-    @_ > 1 ? $_[0]->{discoverer} = $_[1] : $_[0]->{discoverer};
+sub cache_get_cb {
+    @_ > 1 ? $_[0]->{cache_get_cb} = $_[1] : $_[0]->{cache_get_cb};
 }
 
-sub association {
-    @_ > 1 ? $_[0]->{association} = $_[1] : $_[0]->{association};
+sub cache_set_cb {
+    @_ > 1 ? $_[0]->{cache_set_cb} = $_[1] : $_[0]->{cache_set_cb};
 }
 
-sub _associate_counter {
-    @_ > 1
-      ? $_[0]->{_associate_counter} = $_[1]
-      : $_[0]->{_associate_counter};
+our $CACHE = {};
+my $CACHE_LIMIT = 100;
+my $CACHE_TIME  = 60 * 30;
+
+sub _cache_get_cb {
+    my ($key, $cb) = @_;
+
+    my $value = $CACHE->{$key};
+    unless ($value) {
+        warn "Cache miss: '$key'" if DEBUG;
+        return $cb->();
+    }
+
+    # 30 minutes cache
+    if (time - $value->{time} > $CACHE_TIME) {
+        return $cb->();
+    }
+
+    return $cb->($value);
 }
 
-sub error { @_ > 1 ? $_[0]->{error} = $_[1] : $_[0]->{error} }
+sub _cache_set_cb {
+    my ($key, $value, $cb) = @_;
 
-sub debug { $ENV{PROTOCOL_OPENID_DEBUG} || 0 }
+    if (keys %$CACHE > $CACHE_LIMIT) {
+        warn 'Cleaning cache' if DEBUG;
+        my @values =
+          sort { $b->{time} <=> $a->{time} } values %$CACHE;
+
+        $#values = $CACHE_LIMIT - 2;
+        $CACHE   = {@values};
+    }
+
+    $CACHE->{$key} = {time => time, %{$value}};
+
+    return $cb->();
+}
 
 sub new {
     my $class  = shift;
@@ -62,13 +90,11 @@ sub new {
     my $self = {%params};
     bless $self, $class;
 
+    $self->{cache_get_cb} ||= \&_cache_get_cb;
+    $self->{cache_set_cb} ||= \&_cache_set_cb;
+
     $self->{find_cb}   ||= sub { };
     $self->{remove_cb} ||= sub { };
-    $self->{immediate_request}  ||= 0;
-    $self->{_associate_counter} ||= 0;
-
-    $self->{discoverer} ||= Protocol::OpenID::Discoverer->new(
-        http_req_cb => $self->http_req_cb);
 
     $self->return_to($return_to) if $return_to;
 
@@ -79,7 +105,8 @@ sub return_to {
     my $self = shift;
 
     if (my $value = shift) {
-        my $identifier = Protocol::OpenID::Identifier->new($value);
+        my $identifier = Protocol::OpenID::Identifier->new;
+        $identifier->parse($value);
 
         $self->_return_to($identifier->to_string);
 
@@ -93,7 +120,8 @@ sub realm {
     my $self = shift;
 
     if (my $value = shift) {
-        my $identifier = Protocol::OpenID::Identifier->new($value);
+        my $identifier = Protocol::OpenID::Identifier->new;
+        $identifier->parse($value);
 
         $self->_realm($identifier->to_string);
 
@@ -111,138 +139,196 @@ sub authenticate {
     die 'realm is required when return_to is omitted'
       if !$self->return_to && !$self->realm;
 
-    # From User Agent
+    my $tx = Protocol::OpenID::Transaction->new;
+
+    # 7.1. Initiation from User Agent
     if (my $openid_identifier = $params->{'openid_identifier'}) {
 
-        # Normalize
-        my $identifier =
-          Protocol::OpenID::Identifier->new($openid_identifier);
+        # 7.2. Normalization
+        my $identifier = Protocol::OpenID::Identifier->new;
 
-        # Discover
-        $self->discoverer->discover(
-            $identifier => sub {
-                my ($discoverer, $discovery) = @_;
+        unless ($identifier->parse($openid_identifier)) {
+            warn "$identifier";
+            $tx->error('Wrong OpenID identifier');
+            return $cb->($self, $tx);
+        }
+
+        $tx->identifier($identifier->to_string);
+
+        # 7.3. Discovery
+        return $self->_discover(
+            $tx => sub {
+                my ($self, $tx) = @_;
 
                 # Discovery failed
-                if (!$discovery) {
-                    $self->error($discoverer->error);
-                    return $cb->($self, 0);
-                }
+                return $cb->($self, $tx) if $tx->error;
 
-                use Data::Dumper;
-                warn Dumper $discovery;
+                # Association
+                return $self->_associate(
+                    $tx => sub {
+                        my ($self, $tx) = @_;
 
-                $self->_associate(
-                    $discovery->op_endpoint,
-                    sub {
-                        my ($self, $association) = @_;
+                        my $req =
+                          Protocol::OpenID::Authentication::Request->new;
 
-                        # Store association
-                        if (!$self->error && $association) {
-                            warn 'Association ran fine, storing it'
-                              if $self->debug;
+                        $req->ns($tx->ns);
+                        $req->claimed_identifier($tx->claimed_identifier);
+                        $req->return_to($self->return_to);
 
-                            my $assoc_handle =
-                              $association->assoc_handle;
+                        # Association is OPTIONAL
+                        $req->assoc_handle($tx->association->assoc_handle)
+                          if $tx->association;
 
-                            return $self->store_cb->(
-                                $assoc_handle => $self->to_hash,
-                                sub { return $self->_redirect($cb); }
-                            );
-                        }
+                        # Save transaction
+                        #use Data::Dumper;
+                        #warn Dumper $tx;
+                        #$self->store_cb();
 
-                        # Skip association
-                        elsif (!$self->error) {
-                            warn 'Skipping association for various reasons'
-                              if $self->debug;
-                        }
+                        $tx->request($req);
+                        $tx->state('redirect');
 
-                      # Give up on association, but don't fail, it is OPTIONAL
-                        else {
-                            warn 'Association failed: ' . $self->error
-                              if $self->debug;
-                        }
-
-                        return $self->_redirect($discovery, undef, $cb);
+                        return $cb->($self, $tx);
                     }
                 );
             }
         );
     }
 
-    # From OP
+    # Authentication response from OP
     elsif (my $mode = $params->{'openid.mode'}) {
-        #my $ns = $params->{'openid.ns'};
-        #if (grep { $_ eq $mode } (qw/cancel error/)) {
-        #    return $cb->($self, $openid_identifier, $mode);
-        #}
-        #elsif ($ns
-        #    && $ns   eq $Protocol::OpenID::Discovery::VERSION_2_0
-        #    && $mode eq 'setup_needed')
-        #{
-        #    return $cb->($self, $openid_identifier, $mode);
-        #}
-        #elsif ((!$ns || $ns ne $Protocol::OpenID::Discovery::VERSION_2_0)
-        #    && $mode eq 'user_setup_url')
-        #{
-        #    return $cb->($self, $openid_identifier, $mode);
-        #}
-        #elsif ($mode eq 'id_res') {
 
-        #    # Verify successful response
-        #    return $self->_verify($params, $cb);
-        #}
-        #else {
-        #    $self->error('Unknown mode');
-        #    return $cb->($self, undef, 'error');
-        #}
+        warn 'Authentication response from OP' if DEBUG;
+
+        my $response = Protocol::OpenID::Authentication::Response->new;
+
+        my $ok = $response->from_hash($params);
+        unless ($ok) {
+            $tx->error($response->error
+                  || "Can't parse authentication response from OP");
+            return $cb->($self, $tx);
+        }
+
+        $tx->response($response);
+
+        unless ($response->mode eq 'id_res') {
+            $tx->state($response->mode);
+            return $cb->($self, $tx);
+        }
+
+        # 11. Verifying Assertions
+
+      # The value of "openid.return_to" matches the URL of the current request
+      # (Section 11.1 (Verifying the Return URL))
+        if ($self->return_to ne $response->return_to) {
+            $tx->error('Return to values do not match');
+            return $cb->($self, $tx);
+        }
+
+        # Discovered information matches the information in the assertion
+        # (Section 11.2 (Verifying Discovered Information))
+
+       # An assertion has not yet been accepted from this OP with the same
+       # value for "openid.response_nonce" (Section 11.3 (Checking the Nonce))
+
+      # The signature on the assertion is valid and all fields that are
+      # required to be signed are signed (Section 11.4 (Verifying Signatures))
+
+        $self->_verify_signature(
+            $tx => sub {
+                my ($self, $tx) = @_;
+
+                return $cb->($self, $tx) if $tx->error;
+
+                $tx->state('success');
+                return $cb->($self, $tx);
+            }
+        );
     }
 
     # Do nothing
     else {
-        return $cb->($self, undef, 'null');
+        $tx->state('init');
+        $cb->($self, $tx);
     }
 }
 
-sub clear {
+sub _discover {
     my $self = shift;
+    my ($tx, $cb) = @_;
 
-    $self->error('');
-    $self->discovery(undef);
-    $self->association(undef);
+    $tx->state('discovery');
 
-    return $self;
+    my $identifier = $tx->identifier;
+
+    $self->cache_get_cb->(
+        "discover:$identifier" => sub {
+            my ($cache) = @_;
+
+            if ($cache) {
+                warn 'Discovery cache hit' if DEBUG;
+
+                $tx->from_hash($cache);
+                return $cb->($self, $tx);
+            }
+
+            Protocol::OpenID::Discoverer->discover(
+                $self->http_req_cb => $tx => sub {
+                    my ($tx) = @_;
+
+                    if (!$tx->error) {
+                        $self->cache_set_cb->(
+                            "discover:$identifier",
+                            $tx->to_hash => sub {
+                                warn 'Cached discovery' if DEBUG;
+
+                                return $cb->($self, $tx);
+                            }
+                        );
+                    }
+                    else {
+                        return $cb->($self, $tx);
+                    }
+                }
+            );
+        }
+    );
 }
 
 sub _associate {
     my $self = shift;
-    my ($op_endpoint, $cb) = @_;
+    my ($tx, $cb) = @_;
 
     # No point to send association unless we can store it
-    return $cb->($self) unless $self->store_cb;
+    return $cb->($self, $tx) unless $self->store_cb;
+
+    warn 'Performing association' if DEBUG;
+
+    $tx->state('association');
 
     my $request = Protocol::OpenID::Association::Request->new;
 
-    $self->http_req_cb(
+    my $op_endpoint = $tx->op_endpoint;
+
+    $self->http_req_cb->(
         $op_endpoint => 'POST' => {} => $request->to_hash => sub {
             my ($url, $status, $headers, $body) = @_;
 
             # Wrong status
             unless ($status && $status == 200) {
-                $self->error('');
-                return $cb->($self);
+                warn 'Wrong return status during association' if DEBUG;
+                return $cb->($self, $tx);
             }
 
             my $response = Protocol::OpenID::Association::Response->new;
 
             # Wrong body response
             unless ($response->parse($body)) {
-                $self->error($response->error);
-                return $cb->($self);
+                warn 'Wrong association response' if DEBUG;
+                return $cb->($self, $tx);
             }
 
             # Error response
-            if ($response->error) {
+            if ($response->param('error')) {
 
                 # TODO
             }
@@ -254,243 +340,87 @@ sub _associate {
                 unless ($request->assoc_type eq $response->assoc_type
                     && $request->session_type eq $response->session_type)
                 {
-                    $self->error('Association error');
-                    return $cb->($self);
+                    warn 'Association error' if DEBUG;
+                    return $cb->($self, $tx);
                 }
 
-                return $cb->($self, $response);
-            }
-        }
-    );
-}
+                warn 'Association ran fine' if DEBUG;
 
-sub _redirect {
-    my $self = shift;
-    my ($discovery, $assoc_handle, $cb) = @_;
+                # Save association to the transaction
+                $tx->association($response);
 
-    my $req = Protocol::OpenID::Authentication::Request->new;
-    $req->ns($discovery->ns);
-    $req->claimed_identifier($discovery->claimed_identifier);
-    $req->return_to($self->return_to);
-
-    $req->immediate_request(1) if $self->immediate_request;
-
-    $req->assoc_handle($assoc_handle) if $assoc_handle;
-
-    # Redirect to OP
-    return $cb->(
-        $self, $discovery->op_endpoint,
-        'redirect',
-        {location => $discovery->op_endpoint, params => $req->to_hash}
-    );
-}
-
-sub _verify {
-    my $self = shift;
-    my ($params, $cb) = @_;
-
-    # Check return_to
-    return $cb->($self, undef, 'error')
-      unless $self->_return_to_is_valid($params->{'openid.return_to'});
-
-    # TODO: Check Discovered Information
-    unless ($params->{'openid.identity'}) {
-        $self->error('Wrong identity');
-        return $cb->($self, undef, 'error');
-    }
-
-    my $ns = $params->{'openid.ns'}
-      || $Protocol::OpenID::Discovery::VERSION_1_1;
-
-    # Check nonce
-    if ($ns eq $Protocol::OpenID::Discovery::VERSION_2_0) {
-        return $cb->($self, undef, 'error')
-          unless $self->_nonce_is_valid($params->{'openid.response_nonce'});
-    }
-
-    # Look if we have invalidate_handle field, and automatically delete that
-    # association from the store
-    return $self->_verify_handle(
-        $params,
-        sub {
-            my ($self, $is_valid) = @_;
-
-            # Proceed with direct authentication unless handle is valid
-            return $self->_authenticate_directly($params, $cb)
-              unless $is_valid;
-
-            # Check assocition, look into the store
-            return $self->_verify_association(
-                $params,
-                sub {
-                    my ($self, $is_valid) = @_;
-
-                    # Proceed with direct authentication unless correct
-                    # association handle was found
-                    return $self->_authenticate_directly($params, $cb)
-                      unless $is_valid;
-
-                    # User is verified
-                    return $cb->($self, undef, 'verified');
-                }
-            );
-        }
-    );
-}
-
-sub _return_to_is_valid {
-    my $self  = shift;
-    my $param = shift;
-
-    unless ($param && $self->return_to eq $param) {
-        $self->error('Wrong return_to');
-
-        return 0;
-    }
-
-    return 1;
-}
-
-sub _verify_handle {
-    my $self = shift;
-    my ($params, $cb) = @_;
-
-    return $cb->($self, 0) unless $self->store_cb;
-
-    if (my $handle = $params->{'openid.invalidate_handle'}) {
-        warn "Removing handle '$handle'" if $self->debug;
-        $self->remove_cb->($handle, sub { });
-    }
-
-    my $key = $params->{'openid.assoc_handle'};
-
-    my $handle = $self->find_cb->($key);
-    return $cb->($self, 0) unless $handle;
-    warn "Handle '$handle' was found" if $self->debug;
-
-    $self->association(Protocol::OpenID::Association->new(%$handle));
-
-    return $cb->($self, 1);
-}
-
-sub _verify_association {
-    my $self = shift;
-    my ($params, $cb) = @_;
-
-    my $association = $self->association;
-    return $cb->($self, 0) unless $association;
-
-    my $op_signature = $params->{'openid.sig'};
-
-    my $sg = Protocol::OpenID::Signature->new(
-        algorithm => $association->assoc_type,
-        params    => $params
-    );
-
-    my $rp_signature = $sg->calculate($association->enc_mac_key);
-
-    return $cb->($self, 0) unless $op_signature eq $rp_signature;
-
-    warn 'Signatures match' if $self->debug;
-    return $cb->($self, 1);
-}
-
-sub _authenticate_directly {
-    my ($self, $params, $cb) = @_;
-
-    my $op_endpoint;
-
-    my $ns = $params->{'openid.ns'};
-
-    if ($ns && $ns eq $Protocol::OpenID::Discovery::VERSION_2_0) {
-        $op_endpoint = $params->{'openid.op_endpoint'};
-    }
-
-    # Forced to make a discovery again :(
-    else {
-        my $id =
-          Protocol::OpenID::Identifier->new($params->{'openid.identity'});
-
-        $self->clear_discovery;
-
-        return $self->call(
-            discover => [$self, $id] => sub {
-                my ($ctl, $args, $is_done) = @_;
-
-                # Return if discovery was unsuccessful
-                return $cb->($self, undef, 'error')
-                  unless $self->discovery;
-
-                $op_endpoint = $self->discovery->op_endpoint;
-
-                # Verifying Directly with the OpenID Provider
-                return $self->_authenticate_directly_req($op_endpoint,
-                    {params => $params}, $cb);
-            }
-        );
-    }
-
-    my $discovery = Protocol::OpenID::Discovery->new(
-        claimed_identifier => $ns eq $Protocol::OpenID::Discovery::VERSION_2_0
-        ? $params->{'openid.claimed_id'}
-        : $params->{'openid.identity'}
-    );
-    $self->discovery($discovery);
-
-    # Verifying Directly with the OpenID Provider
-    return $self->_authenticate_directly_req($op_endpoint,
-        {params => $params}, $cb);
-}
-
-sub _authenticate_directly_req {
-    my ($self, $url, $args, $cb) = @_;
-
-    warn 'Direct authentication' if $self->debug;
-
-    # When using Direct Authentication we must take all the params we've got
-    # from the OP (instead of the mode) and send them back
-    my $params =
-      {%{$args->{params}}, 'openid.mode' => 'check_authentication'};
-
-    return $self->http_req_cb->(
-        $self,
-        $url => 'POST',
-        {},
-        $params,
-        sub {
-            my ($self, $op_endpoint, $args) = @_;
-
-            my $status = $args->{status};
-            my $body   = $args->{body};
-
-            unless ($status && $status == 200) {
-                $self->error(
-                    'Wrong provider direct authentication response status');
-                return $cb->($self, undef, 'error');
-            }
-
-            my $params = Protocol::OpenID::Parameters->new($body);
-            unless ($params->param('is_valid')) {
-                warn $body if $self->debug;
-                $self->error('is_valid field is missing');
-                return $cb->($self, undef, 'error');
-            }
-
-            if ($params->param('is_valid') eq 'true') {
-
-                # Finally verified user
-                return $cb->(
-                    $self, $self->discovery->claimed_identifier, 'verified'
+                $self->store(
+                    $response->assoc_handle => $response->to_hash => sub {
+                        return $cb->($self, $tx);
+                    }
                 );
             }
+        }
+    );
+}
 
-            $self->error('Not a valid user');
+sub _verify_signature {
+    my ($self, $tx, $cb) = @_;
 
-            if ($params->param('invalidate_handle')) {
-                die 'SUPPORT ME!';
+    $self->find_cb->(
+        $tx->response->assoc_handle => sub {
+            my ($handle) = @_;
+
+            if ($handle) {
+                my $op_signature = $tx->response->sig;
+
+                my $sg = Protocol::OpenID::Signature->new(
+                    algorithm => $handle->{assoc_type},
+                    params    => $tx->response->to_hash
+                );
+
+                my $rp_signature = $sg->calculate($handle->{enc_mac_key});
+
+                if ($op_signature ne $rp_signature) {
+                    $self->remove_cb->(
+                        $handle =>
+                          sub { $self->_verify_signature_directly($tx, $cb); }
+                    );
+                }
+                else {
+                    $cb->($self, $tx);
+                }
+            }
+            else {
+                $self->_verify_signature_directly($tx, $cb);
+            }
+        }
+    );
+}
+
+sub _verify_signature_directly {
+    my ($self, $tx, $cb) = @_;
+
+    my $direct_request =
+      Protocol::OpenID::Authentication::DirectRequest->new($tx->response);
+
+    $self->http_req_cb->(
+        $tx->op_endpoint,
+        'POST',
+        {},
+        $direct_request->to_hash => sub {
+            my ($url, $status, $headers, $body) = @_;
+
+            unless ($status && $status == 200) {
+                $tx->error(
+                    'Wrong provider direct authentication response status');
+                return $cb->($self, $tx);
             }
 
-            return $cb->($self, undef, 'error');
+            my $direct_response =
+              Protocol::OpenID::Authentication::DirectResponse->new;
+
+            if (!$direct_response->parse($body)) {
+                $tx->error($direct_response->error);
+                return $cb->($self, $tx);
+            }
+
+            $cb->($self, $tx);
         }
     );
 }
