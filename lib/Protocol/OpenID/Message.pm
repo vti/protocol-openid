@@ -9,12 +9,16 @@ use Protocol::OpenID;
 
 sub new {
     my $class = shift;
-    my %params = @_;
 
     my $self  = {};
     bless $self, $class;
 
-    $self->{params} = {%params};
+    $self->{keys}   = [];
+    $self->{params} = {};
+
+    for (my $i = 0; $i < @_; $i += 2) {
+        $self->param($_[$i] => $_[$i + 1]);
+    }
 
     return $self;
 }
@@ -31,6 +35,7 @@ sub parse {
     my $self = shift;
     my $content = shift;
 
+    $self->{keys} = [];
     $self->params({});
 
     unless ($content) {
@@ -66,6 +71,8 @@ sub param {
 
         $self->params->{$name} = $value;
 
+        push @{$self->{keys}}, $name;
+
         return $self;
     }
 
@@ -74,15 +81,12 @@ sub param {
 
 sub to_hash {
     my $self = shift;
-    my %args = @_;
 
     $self->build;
 
     my $hash = {};
 
     foreach my $key (keys %{$self->params}) {
-        #$key =~ s/^openid\.// unless $args{prefixed};
-
         $hash->{$key} = $self->param($key);
     }
 
@@ -103,9 +107,11 @@ sub from_hash {
 sub to_string {
     my $self = shift;
 
+    $self->build;
+
     my $string = '';
 
-    foreach my $key (keys %{$self->params}) {
+    foreach my $key (@{$self->{keys}}) {
         $key =~ s/^openid\.//;
         $string .=  $key . ':' . $self->param($key) . "\n";
     }

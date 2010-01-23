@@ -8,11 +8,23 @@ use Test::More tests => 11;
 use Protocol::OpenID;
 use Protocol::OpenID::Message;
 
-my $message = Protocol::OpenID::Message->new;
+my $message = Protocol::OpenID::Message->new(z => 'a');
 $message->ns(OPENID_VERSION_2_0);
-is_deeply($message->to_hash, {'openid.ns' => OPENID_VERSION_2_0});
+$message->param(zoo => 'bar');
+$message->param(a => 'b');
+is_deeply(
+    $message->to_hash,
+    {   'openid.z'   => 'a',
+        'openid.ns'  => OPENID_VERSION_2_0,
+        'openid.zoo' => 'bar',
+        'openid.a'   => 'b'
+    }
+);
 is($message->to_string, <<'EOF');
+z:a
 ns:http://specs.openid.net/auth/2.0
+zoo:bar
+a:b
 EOF
 
 $message = Protocol::OpenID::Message->new;
