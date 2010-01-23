@@ -4,16 +4,19 @@ use strict;
 use warnings;
 
 use Protocol::OpenID;
-use Protocol::OpenID::Transaction;
-use Protocol::OpenID::Identifier;
 use Protocol::OpenID::Discoverer;
+use Protocol::OpenID::Association;
+use Protocol::OpenID::Transaction;
+
+use Protocol::OpenID::Identifier;
 use Protocol::OpenID::Signature;
-use Protocol::OpenID::Association::Request;
-use Protocol::OpenID::Association::Response;
-use Protocol::OpenID::Authentication::Request;
-use Protocol::OpenID::Authentication::Response;
-use Protocol::OpenID::Authentication::DirectRequest;
-use Protocol::OpenID::Authentication::DirectResponse;
+
+use Protocol::OpenID::Message::AssociationRequest;
+use Protocol::OpenID::Message::AssociationResponse;
+use Protocol::OpenID::Message::AuthenticationRequest;
+use Protocol::OpenID::Message::AuthenticationResponse;
+use Protocol::OpenID::Message::VerificationRequest;
+use Protocol::OpenID::Message::VerificationResponse;
 
 use constant DEBUG => $ENV{PROTOCOL_OPENID_DEBUG} ? 1 : 0;
 
@@ -23,7 +26,7 @@ sub http_req_cb {
 
 sub store_cb { @_ > 1 ? $_[0]->{store_cb} = $_[1] : $_[0]->{store_cb} }
 
-sub find_cb { @_ > 1 ? $_[0]->{store_cb} = $_[1] : $_[0]->{store_cb} }
+sub find_cb { @_ > 1 ? $_[0]->{find_cb} = $_[1] : $_[0]->{find_cb} }
 
 sub remove_cb {
     @_ > 1 ? $_[0]->{remove_cb} = $_[1] : $_[0]->{remove_cb};
@@ -169,7 +172,7 @@ sub authenticate {
                         my ($self, $tx) = @_;
 
                         my $req =
-                          Protocol::OpenID::Authentication::Request->new;
+                          Protocol::OpenID::Message::AuthenticationRequest->new;
 
                         $req->ns($tx->ns);
                         $req->claimed_identifier($tx->claimed_identifier);
@@ -178,11 +181,6 @@ sub authenticate {
                         # Association is OPTIONAL
                         $req->assoc_handle($tx->association->assoc_handle)
                           if $tx->association;
-
-                        # Save transaction
-                        #use Data::Dumper;
-                        #warn Dumper $tx;
-                        #$self->store_cb();
 
                         $tx->request($req);
                         $tx->state('redirect');
@@ -199,7 +197,7 @@ sub authenticate {
 
         warn 'Authentication response from OP' if DEBUG;
 
-        my $response = Protocol::OpenID::Authentication::Response->new;
+        my $response = Protocol::OpenID::Message::AuthenticationResponse->new;
 
         my $ok = $response->from_hash($params);
         unless ($ok) {
@@ -209,6 +207,14 @@ sub authenticate {
         }
 
         $tx->response($response);
+
+        $tx->op_endpoint($response->op_endpoint);
+
+        # Special case, error mode
+        if ($response->mode eq 'error') {
+            $tx->error($response->param('error'));
+            return $cb->($self, $tx);
+        }
 
         unless ($response->mode eq 'id_res') {
             $tx->state($response->mode);
@@ -301,11 +307,13 @@ sub _associate {
     # No point to send association unless we can store it
     return $cb->($self, $tx) unless $self->store_cb;
 
+    my $assoc = Protocol::OpenID::Association->new;
+
     warn 'Performing association' if DEBUG;
 
     $tx->state('association');
 
-    my $request = Protocol::OpenID::Association::Request->new;
+    my $request = Protocol::OpenID::Message::AssociationRequest->new($assoc);
 
     my $op_endpoint = $tx->op_endpoint;
 
@@ -319,7 +327,8 @@ sub _associate {
                 return $cb->($self, $tx);
             }
 
-            my $response = Protocol::OpenID::Association::Response->new;
+            my $response =
+              Protocol::OpenID::Message::AssociationResponse->new($assoc);
 
             # Wrong body response
             unless ($response->parse($body)) {
@@ -328,7 +337,7 @@ sub _associate {
             }
 
             # Error response
-            if ($response->param('error')) {
+            if ($assoc->error) {
 
                 # TODO
             }
@@ -336,24 +345,13 @@ sub _associate {
             # Successful response
             else {
 
-                # Check the successful response itself
-                unless ($request->assoc_type eq $response->assoc_type
-                    && $request->session_type eq $response->session_type)
-                {
-                    warn 'Association error' if DEBUG;
-                    return $cb->($self, $tx);
-                }
-
                 warn 'Association ran fine' if DEBUG;
 
                 # Save association to the transaction
-                $tx->association($response);
+                $tx->association($assoc);
 
-                $self->store_cb->(
-                    $response->assoc_handle => $response->to_hash => sub {
-                        return $cb->($self, $tx);
-                    }
-                );
+                $self->store_cb->($assoc->assoc_handle => $assoc->to_hash =>
+                      sub { return $cb->($self, $tx); });
             }
         }
     );
@@ -364,21 +362,19 @@ sub _verify_signature {
 
     $self->find_cb->(
         $tx->response->assoc_handle => sub {
-            my ($handle) = @_;
+            if (my $assoc = shift) {
 
-            if ($handle) {
                 my $op_signature = $tx->response->sig;
 
-                my $sg = Protocol::OpenID::Signature->new(
-                    algorithm => $handle->{assoc_type},
-                    params    => $tx->response->to_hash
-                );
+                my $sg =
+                  Protocol::OpenID::Signature->new($tx->response->to_hash,
+                    algorithm => $assoc->{assoc_type});
 
-                my $rp_signature = $sg->calculate($handle->{enc_mac_key});
+                my $rp_signature = $sg->calculate($assoc->{secret});
 
                 if ($op_signature ne $rp_signature) {
                     $self->remove_cb->(
-                        $handle =>
+                        $assoc->assoc_handle =>
                           sub { $self->_verify_signature_directly($tx, $cb); }
                     );
                 }
@@ -397,7 +393,7 @@ sub _verify_signature_directly {
     my ($self, $tx, $cb) = @_;
 
     my $direct_request =
-      Protocol::OpenID::Authentication::DirectRequest->new($tx->response);
+      Protocol::OpenID::Message::VerificationRequest->new($tx->response);
 
     $self->http_req_cb->(
         $tx->op_endpoint,
@@ -413,12 +409,15 @@ sub _verify_signature_directly {
             }
 
             my $direct_response =
-              Protocol::OpenID::Authentication::DirectResponse->new;
+              Protocol::OpenID::Message::VerificationResponse->new;
 
             if (!$direct_response->parse($body)) {
                 $tx->error($direct_response->error);
                 return $cb->($self, $tx);
             }
+
+            $tx->error('Signature not verified')
+              if $direct_response->is_valid eq 'false';
 
             $cb->($self, $tx);
         }
