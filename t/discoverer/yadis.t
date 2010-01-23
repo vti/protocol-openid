@@ -53,6 +53,6 @@ Protocol::OpenID::Discoverer::Yadis->discover(
     $http_req_cb => $tx => sub {
         my $tx = shift;
 
-        is($tx->error, '');
+        is($tx->error, 'No <head> was found');
     }
 );
