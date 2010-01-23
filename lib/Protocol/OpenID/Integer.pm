@@ -27,6 +27,19 @@ sub new {
 
 sub int { @_ > 1 ? $_[0]->{int} = $_[1] : $_[0]->{int} }
 
+sub parse {
+    my $self = shift;
+    my $string = shift;
+
+    my $int = "0b" . unpack("B*", $string);
+
+    $int = Math::BigInt->new($int) unless ref $int;
+
+    $self->int($int);
+
+    return $self->int;
+}
+
 sub to_string {
     my $self = shift;
 
