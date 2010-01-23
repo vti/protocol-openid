@@ -7,33 +7,35 @@ use Test::More tests => 2;
 
 use Protocol::OpenID::Signature;
 
-my $params = {
-    'openid.response_nonce' => '2009-03-29T22:26:35Z0610',
-    'openid.mode'           => 'id_res',
-    'openid.claimed_id'     => 'http://foo.bar.net/',
-    'openid.assoc_handle'   => '19eaef2af65153',
-    'openid.ns'             => 'http://specs.openid.net/auth/2.0',
-    'openid.signed' =>
-      'op_endpoint,claimed_id,identity,return_to,response_nonce,assoc_handle,mode',
-    'openid.sig'         => 'UitMYFUDpzp08DEqVaJhB/lpPQlqnxRo2jJyADX6H0M=',
-    'openid.op_endpoint' => 'http://bar.net/server',
-    'openid.identity'    => 'http://foo.bar.net/',
-    'openid.return_to'   => 'http://myserver.com/'
-};
-
-my $s = Protocol::OpenID::Signature->new($params);
+my $s = Protocol::OpenID::Signature->new(
+    {   'openid.response_nonce' => '2010-01-23T20:49:44ZlHip11',
+        'openid.mode'           => 'id_res',
+        'openid.claimed_id'     => 'http://vti.myopenid.com/',
+        'openid.assoc_handle'   => '{HMAC-SHA1}{4b5b60e1}{Gf+xYg==}',
+        'openid.ns'             => 'http://specs.openid.net/auth/2.0',
+        'openid.signed' =>
+          'assoc_handle,claimed_id,identity,mode,ns,op_endpoint,response_nonce,return_to,signed',
+        'openid.sig'         => 'fxtNcegkjKNGMpOGTSgzTJscDP8=',
+        'openid.op_endpoint' => 'http://www.myopenid.com/server',
+        'openid.identity'    => 'http://vti.myopenid.com/',
+        'openid.return_to'   => 'http://dell:3000/'
+    }
+);
 
 is_deeply(
     [$s->keys],
-    [   qw/op_endpoint
+    [   qw/
+          assoc_handle
           claimed_id
           identity
-          return_to
+          mode
+          ns
+          op_endpoint
           response_nonce
-          assoc_handle
-          mode/
+          return_to
+          signed
+          /
     ]
 );
-
-my $signature = $s->calculate('secret');
-is(length $signature, 160 / 8);
+is($s->calculate('7A/8TxQlJsJla2MP7ZHBHOgr59A='),
+    'fxtNcegkjKNGMpOGTSgzTJscDP8=');

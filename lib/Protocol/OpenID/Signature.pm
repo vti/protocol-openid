@@ -5,6 +5,7 @@ use warnings;
 
 use Protocol::OpenID::Message;
 use Digest::SHA1 qw(sha1 sha1_hex);
+use MIME::Base64 ();
 
 sub new {
     my $class = shift;
@@ -37,6 +38,8 @@ sub calculate {
 
     return unless $secret;
 
+    $secret = MIME::Base64::decode_base64($secret);
+
     my @keys = $self->keys;
 
     my $message = Protocol::OpenID::Message->new;
@@ -46,7 +49,10 @@ sub calculate {
 
     my $string = $message->to_string;
 
-    return _hmac_sha1($string, $secret);
+    my $sig = MIME::Base64::encode_base64(_hmac_sha1($string, $secret));
+    $sig =~ s/\s+//g;
+
+    return $sig
 }
 
 # From Digest::HMAC
