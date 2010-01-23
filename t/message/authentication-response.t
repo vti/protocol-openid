@@ -7,11 +7,11 @@ use Test::More tests => 28;
 
 use Protocol::OpenID;
 use Protocol::OpenID::Nonce;
-use Protocol::OpenID::Authentication::Response;
+use Protocol::OpenID::Message::AuthenticationResponse;
 
 my $current_nonce = Protocol::OpenID::Nonce->new;
 
-my $res = Protocol::OpenID::Authentication::Response->new;
+my $res = Protocol::OpenID::Message::AuthenticationResponse->new;
 ok( $res->from_hash(
         {   'openid.ns'   => OPENID_VERSION_2_0,
             'openid.mode' => 'setup_needed'
@@ -26,7 +26,7 @@ is_deeply(
     }
 );
 
-$res = Protocol::OpenID::Authentication::Response->new;
+$res = Protocol::OpenID::Message::AuthenticationResponse->new;
 ok( !$res->from_hash(
         {   'openid.ns'   => OPENID_VERSION_2_0,
             'openid.mode' => 'user_setup_url'
@@ -35,11 +35,11 @@ ok( !$res->from_hash(
 );
 is($res->error, 'Unknown mode');
 
-$res = Protocol::OpenID::Authentication::Response->new;
+$res = Protocol::OpenID::Message::AuthenticationResponse->new;
 ok($res->from_hash({'openid.mode' => 'user_setup_url'}));
 is($res->mode, 'user_setup_url');
 
-$res = Protocol::OpenID::Authentication::Response->new;
+$res = Protocol::OpenID::Message::AuthenticationResponse->new;
 ok( $res->from_hash(
         {   'openid.ns'   => OPENID_VERSION_2_0,
             'openid.mode' => 'cancel'
@@ -48,7 +48,7 @@ ok( $res->from_hash(
 );
 is($res->mode, 'cancel');
 
-$res = Protocol::OpenID::Authentication::Response->new;
+$res = Protocol::OpenID::Message::AuthenticationResponse->new;
 ok( !$res->from_hash(
         {   'openid.ns'   => OPENID_VERSION_2_0,
             'openid.mode' => 'id_res'
@@ -57,7 +57,7 @@ ok( !$res->from_hash(
 );
 is($res->error, 'Return to is missing');
 
-$res = Protocol::OpenID::Authentication::Response->new;
+$res = Protocol::OpenID::Message::AuthenticationResponse->new;
 ok( !$res->from_hash(
         {   'openid.ns'        => OPENID_VERSION_2_0,
             'openid.mode'      => 'id_res',
@@ -67,7 +67,7 @@ ok( !$res->from_hash(
 );
 is($res->error, 'OP Endpoint is missing');
 
-$res = Protocol::OpenID::Authentication::Response->new;
+$res = Protocol::OpenID::Message::AuthenticationResponse->new;
 ok( !$res->from_hash(
         {   'openid.ns'          => OPENID_VERSION_2_0,
             'openid.mode'        => 'id_res',
@@ -78,7 +78,7 @@ ok( !$res->from_hash(
 );
 is($res->error, 'Nonce is missing');
 
-$res = Protocol::OpenID::Authentication::Response->new;
+$res = Protocol::OpenID::Message::AuthenticationResponse->new;
 ok( !$res->from_hash(
         {   'openid.ns'             => OPENID_VERSION_2_0,
             'openid.mode'           => 'id_res',
@@ -90,7 +90,7 @@ ok( !$res->from_hash(
 );
 is($res->error, 'Nonce is too old');
 
-$res = Protocol::OpenID::Authentication::Response->new;
+$res = Protocol::OpenID::Message::AuthenticationResponse->new;
 ok( !$res->from_hash(
         {   'openid.ns'             => OPENID_VERSION_2_0,
             'openid.mode'           => 'id_res',
@@ -102,7 +102,7 @@ ok( !$res->from_hash(
 );
 is($res->error, 'Nonce is in the future');
 
-$res = Protocol::OpenID::Authentication::Response->new;
+$res = Protocol::OpenID::Message::AuthenticationResponse->new;
 ok( !$res->from_hash(
         {   'openid.ns'             => OPENID_VERSION_2_0,
             'openid.mode'           => 'id_res',
@@ -117,7 +117,7 @@ ok( !$res->from_hash(
 );
 is($res->error, 'Association handle is missing');
 
-$res = Protocol::OpenID::Authentication::Response->new;
+$res = Protocol::OpenID::Message::AuthenticationResponse->new;
 ok( !$res->from_hash(
         {   'openid.ns'             => OPENID_VERSION_2_0,
             'openid.mode'           => 'id_res',
@@ -133,7 +133,7 @@ ok( !$res->from_hash(
 );
 is($res->error, 'Signed is missing');
 
-$res = Protocol::OpenID::Authentication::Response->new;
+$res = Protocol::OpenID::Message::AuthenticationResponse->new;
 ok( !$res->from_hash(
         {   'openid.ns'             => OPENID_VERSION_2_0,
             'openid.mode'           => 'id_res',
@@ -150,7 +150,7 @@ ok( !$res->from_hash(
 );
 is($res->error, 'Sig is missing');
 
-$res = Protocol::OpenID::Authentication::Response->new;
+$res = Protocol::OpenID::Message::AuthenticationResponse->new;
 ok( $res->from_hash(
         {   'openid.ns'             => OPENID_VERSION_2_0,
             'openid.mode'           => 'id_res',

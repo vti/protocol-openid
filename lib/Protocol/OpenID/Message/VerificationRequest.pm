@@ -1,9 +1,9 @@
-package Protocol::OpenID::Authentication::DirectRequest;
+package Protocol::OpenID::Message::VerificationRequest;
 
 use strict;
 use warnings;
 
-use base 'Protocol::OpenID::Authentication::Response';
+use base 'Protocol::OpenID::Message';
 
 sub new {
     my $class = shift;
@@ -11,7 +11,7 @@ sub new {
 
     die 'Response object is required' unless $response;
 
-    my $self = $class->SUPER::new;
+    my $self = $class->SUPER::new(@_);
 
     $self->from_hash($response->to_hash);
 

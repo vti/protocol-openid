@@ -1,9 +1,9 @@
-package Protocol::OpenID::Authentication::Request;
+package Protocol::OpenID::Message::AuthenticationRequest;
 
 use strict;
 use warnings;
 
-use base 'Protocol::OpenID::Authentication';
+use base 'Protocol::OpenID::Message';
 
 use Protocol::OpenID;
 

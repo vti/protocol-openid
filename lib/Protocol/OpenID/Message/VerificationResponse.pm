@@ -1,4 +1,4 @@
-package Protocol::OpenID::Authentication::DirectResponse;
+package Protocol::OpenID::Message::VerificationResponse;
 
 use strict;
 use warnings;

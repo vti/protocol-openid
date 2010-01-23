@@ -1,4 +1,4 @@
-package Protocol::OpenID::Authentication::Response;
+package Protocol::OpenID::Message::AuthenticationResponse;
 
 use strict;
 use warnings;
@@ -92,7 +92,7 @@ sub _validate {
 }
 
 sub _is_valid_nonce {
-    my $self  = shift;
+    my $self = shift;
 
     my $nonce = Protocol::OpenID::Nonce->new;
 

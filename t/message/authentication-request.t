@@ -6,10 +6,10 @@ use warnings;
 use Test::More tests => 8;
 
 use Protocol::OpenID;
-use Protocol::OpenID::Authentication::Request;
+use Protocol::OpenID::Message::AuthenticationRequest;
 
 # Defaults
-my $req = Protocol::OpenID::Authentication::Request->new;
+my $req = Protocol::OpenID::Message::AuthenticationRequest->new;
 $req->ns(OPENID_VERSION_2_0);
 $req->realm('http://foo.bar/');
 is_deeply(
@@ -23,7 +23,7 @@ is_deeply(
 );
 
 # return_to
-$req = Protocol::OpenID::Authentication::Request->new;
+$req = Protocol::OpenID::Message::AuthenticationRequest->new;
 $req->ns(OPENID_VERSION_2_0);
 $req->return_to('http://foo.bar/');
 $req->realm('http://foo.bar/');
@@ -39,7 +39,7 @@ is_deeply(
 );
 
 # claimed_id, but no Local OP Identifier
-$req = Protocol::OpenID::Authentication::Request->new;
+$req = Protocol::OpenID::Message::AuthenticationRequest->new;
 $req->ns(OPENID_VERSION_2_0);
 $req->claimed_identifier('http://vti.foo.bar/');
 $req->return_to('http://foo.bar/');
@@ -56,7 +56,7 @@ is_deeply(
 );
 
 # claimed_id and Local OP Identifier
-$req = Protocol::OpenID::Authentication::Request->new;
+$req = Protocol::OpenID::Message::AuthenticationRequest->new;
 $req->ns(OPENID_VERSION_2_0);
 $req->claimed_identifier('http://vti.foo.bar/');
 $req->op_local_identifier('http://baz.foo.bar/');
@@ -74,7 +74,7 @@ is_deeply(
 );
 
 # Realm
-$req = Protocol::OpenID::Authentication::Request->new;
+$req = Protocol::OpenID::Message::AuthenticationRequest->new;
 $req->ns(OPENID_VERSION_2_0);
 $req->claimed_identifier('http://vti.foo.bar/');
 $req->op_local_identifier('http://baz.foo.bar/');
@@ -92,7 +92,7 @@ is_deeply(
 );
 
 # Immediate request
-$req = Protocol::OpenID::Authentication::Request->new;
+$req = Protocol::OpenID::Message::AuthenticationRequest->new;
 $req->ns(OPENID_VERSION_2_0);
 $req->claimed_identifier('http://vti.foo.bar/');
 $req->op_local_identifier('http://baz.foo.bar/');
@@ -111,7 +111,7 @@ is_deeply(
 );
 
 # assoc_handle
-$req = Protocol::OpenID::Authentication::Request->new;
+$req = Protocol::OpenID::Message::AuthenticationRequest->new;
 $req->ns(OPENID_VERSION_2_0);
 $req->claimed_identifier('http://vti.foo.bar/');
 $req->op_local_identifier('http://baz.foo.bar/');
@@ -131,7 +131,7 @@ is_deeply(
 );
 
 # OpenID 1.1 compatibility check
-$req = Protocol::OpenID::Authentication::Request->new;
+$req = Protocol::OpenID::Message::AuthenticationRequest->new;
 $req->claimed_identifier('http://vti.foo.bar/');
 $req->op_local_identifier('http://baz.foo.bar/');
 $req->return_to('http://foo.bar/');
