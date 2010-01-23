@@ -349,7 +349,7 @@ sub _associate {
                 # Save association to the transaction
                 $tx->association($response);
 
-                $self->store(
+                $self->store_cb->(
                     $response->assoc_handle => $response->to_hash => sub {
                         return $cb->($self, $tx);
                     }
