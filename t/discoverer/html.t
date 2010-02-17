@@ -3,13 +3,29 @@
 use strict;
 use warnings;
 
-use Test::More tests => 14;
+use Test::More tests => 15;
 
 use Protocol::OpenID::Transaction;
 use Protocol::OpenID::Discoverer::HTML;
 
+my $tx;
+
+# Internal error
+$tx = Protocol::OpenID::Transaction->new;
+Protocol::OpenID::Discoverer::HTML->discover(
+    sub {
+        my ($url, $method, $headers, $body, $cb) = @_;
+
+        $cb->($url, 0, $headers, $body, "Can't connect");
+      } => $tx => sub {
+        my $tx = shift;
+
+        is($tx->error, "Can't connect");
+    }
+);
+
 # 404
-my $tx = Protocol::OpenID::Transaction->new;
+$tx = Protocol::OpenID::Transaction->new;
 Protocol::OpenID::Discoverer::HTML->discover(
     sub {
         my ($url, $method, $headers, $body, $cb) = @_;

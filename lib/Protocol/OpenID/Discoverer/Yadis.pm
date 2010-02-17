@@ -21,7 +21,7 @@ sub discover {
 
     $y->discover(
         $url => sub {
-            my ($y, $document) = @_;
+            my ($y, $document, $error) = @_;
 
             # Yadis document was found
             if ($document) {
@@ -104,7 +104,7 @@ sub discover {
 
             # No Yadis Document was found
             else {
-                $tx->error($y->error || 'No Yadis document was found');
+                $tx->error($error || 'No Yadis document was found');
 
                 $cb->($tx);
             }

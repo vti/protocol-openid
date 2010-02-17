@@ -319,7 +319,11 @@ sub _associate {
 
     $self->http_req_cb->(
         $op_endpoint => 'POST' => {} => $request->to_hash => sub {
-            my ($url, $status, $headers, $body) = @_;
+            my ($url, $status, $headers, $body, $error) = @_;
+
+            if ($error) {
+                return $cb->($self, $tx);
+            }
 
             # Wrong status
             unless ($status && $status == 200) {
@@ -400,7 +404,12 @@ sub _verify_signature_directly {
         'POST',
         {},
         $direct_request->to_hash => sub {
-            my ($url, $status, $headers, $body) = @_;
+            my ($url, $status, $headers, $body, $error) = @_;
+
+            if ($error) {
+                $tx->error($error);
+                return $cb->($self, $tx);
+            }
 
             unless ($status && $status == 200) {
                 $tx->error(

@@ -16,9 +16,7 @@ sub discover {
 
     $http_req_cb->(
         $url => 'GET' => {Accept => '*/*'} => '' => sub {
-            my ($url, $status, $headers, $body) = @_;
-
-            _http_res_on($tx, $url, $status, $headers, $body);
+            _http_res_on($tx, @_);
 
             return $cb->($tx);
         }
@@ -26,7 +24,12 @@ sub discover {
 }
 
 sub _http_res_on {
-    my ($tx, $url, $status, $headers, $body) = @_;
+    my ($tx, $url, $status, $headers, $body, $error) = @_;
+
+    if ($error) {
+        $tx->error($error);
+        return;
+    }
 
     unless ($status && $status == 200) {
         $tx->error("Wrong $status response status");
