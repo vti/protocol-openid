@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 11;
+use Test::More tests => 32;
 
 use Protocol::OpenID;
 use Protocol::OpenID::Message;
@@ -34,6 +34,18 @@ EOF
 is($message->ns, OPENID_VERSION_2_0);
 
 $message = Protocol::OpenID::Message->new;
+ok($message->parse(<<'EOF'));
+foo:bar,baz
+EOF
+is_deeply($message->param('foo'), 'bar,baz');
+is_deeply($message->to_hash, {'openid.foo' => 'bar,baz'});
+
+$message = Protocol::OpenID::Message->new;
+$message->from_hash({foo => [qw/bar baz/]});
+is_deeply($message->param('foo'), 'bar,baz');
+is_deeply($message->to_hash, {'openid.foo' => 'bar,baz'});
+
+$message = Protocol::OpenID::Message->new;
 ok(!$message->ns);
 $message->param(foo => 'bar');
 is_deeply($message->to_hash, {'openid.foo' => 'bar'});
@@ -51,3 +63,43 @@ $message = Protocol::OpenID::Message->new;
 $message->from_hash({foo => 'bar'});
 is($message->param('foo'), 'bar');
 is_deeply($message->to_hash, {'openid.foo' => 'bar'});
+
+# Extension
+$message = Protocol::OpenID::Message->new;
+ok($message->parse(<<'EOF'));
+foo:bar
+ns.ext:http://foo.com
+ext.bar:baz
+EOF
+is_deeply(
+    $message->to_hash,
+    {   'openid.foo'     => 'bar',
+        'openid.ns.ext'  => 'http://foo.com',
+        'openid.ext.bar' => 'baz'
+    }
+);
+is_deeply([$message->extensions], ['ext']);
+ok(not defined $message->extension('foo'));
+my $ext = $message->extension('ext');
+ok($ext);
+is($ext->name, 'ext');
+is($ext->ns, 'http://foo.com');
+is_deeply($ext->params, {bar => 'baz'});
+
+$message = Protocol::OpenID::Message->new;
+$message->extension(
+    ext => {ns => 'http://foo.com', params => {foo => 'bar'}});
+$ext = $message->extension('ext');
+ok($ext);
+is($ext->name, 'ext');
+is($ext->ns, 'http://foo.com');
+is_deeply($ext->params, {foo => 'bar'});
+
+$message = Protocol::OpenID::Message->new;
+$message->from_hash(
+    {'openid.ns.ext' => 'http://foo.com', 'openid.ext.foo' => 'bar'});
+$ext = $message->extension('ext');
+ok($ext);
+is($ext->name, 'ext');
+is($ext->ns,   'http://foo.com');
+is_deeply($ext->params, {foo => 'bar'});

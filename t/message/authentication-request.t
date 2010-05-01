@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 8;
+use Test::More tests => 9;
 
 use Protocol::OpenID;
 use Protocol::OpenID::Message::AuthenticationRequest;
@@ -70,6 +70,38 @@ is_deeply(
         'openid.identity'   => 'http://baz.foo.bar/',
         'openid.return_to'  => 'http://foo.bar/',
         'openid.realm'      => 'http://foo.bar/'
+    }
+);
+
+# Extensions
+$req = Protocol::OpenID::Message::AuthenticationRequest->new;
+$req->ns(OPENID_VERSION_2_0);
+$req->claimed_identifier('http://vti.foo.bar/');
+$req->op_local_identifier('http://baz.foo.bar/');
+$req->realm('http://foo.bar/');
+$req->return_to('http://foo.bar/');
+$req->extension(
+    sreg => {
+        ns     => 'http://openid.net/extensions/sreg/1.1',
+        params => {
+            required   => 'foo',
+            optional   => ['bar', 'baz'],
+            policy_url => 'http://foo.com'
+        }
+    }
+);
+is_deeply(
+    $req->to_hash,
+    {   'openid.ns'              => OPENID_VERSION_2_0,
+        'openid.mode'            => 'checkid_setup',
+        'openid.claimed_id'      => 'http://vti.foo.bar/',
+        'openid.identity'        => 'http://baz.foo.bar/',
+        'openid.return_to'       => 'http://foo.bar/',
+        'openid.realm'           => 'http://foo.bar/',
+        'openid.ns.sreg'         => 'http://openid.net/extensions/sreg/1.1',
+        'openid.sreg.required'   => 'foo',
+        'openid.sreg.optional'   => 'bar,baz',
+        'openid.sreg.policy_url' => 'http://foo.com',
     }
 );
 

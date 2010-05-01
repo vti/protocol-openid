@@ -125,6 +125,8 @@ sub new {
         die 'find_cb and store_cb must be both undefined or defined';
     }
 
+    $self->{extensions} = {};
+
     $self->return_to($return_to) if $return_to;
 
     return $self;
@@ -158,6 +160,13 @@ sub realm {
     }
 
     return $self->_realm;
+}
+
+sub extension {
+    my $self = shift;
+    my ($name, $ext) = @_;
+
+    $self->{extensions}->{$name} = $ext;
 }
 
 sub authenticate {
@@ -213,6 +222,12 @@ sub authenticate {
                         $req->claimed_identifier($tx->claimed_identifier);
 
                         $req->return_to($self->return_to);
+
+                        # Extensions
+                        foreach my $name (keys %{$self->{extensions}}) {
+                            $req->extension(
+                                $name => $self->{extensions}->{$name});
+                        }
 
                         # Association is OPTIONAL
                         $req->assoc_handle($tx->association->assoc_handle)

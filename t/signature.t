@@ -13,8 +13,7 @@ my $s = Protocol::OpenID::Signature->new(
         'openid.claimed_id'     => 'http://vti.myopenid.com/',
         'openid.assoc_handle'   => '{HMAC-SHA1}{4b5b60e1}{Gf+xYg==}',
         'openid.ns'             => 'http://specs.openid.net/auth/2.0',
-        'openid.signed' =>
-          'assoc_handle,claimed_id,identity,mode,ns,op_endpoint,response_nonce,return_to,signed',
+        'openid.signed' => 'assoc_handle,claimed_id,identity,mode,ns,op_endpoint,response_nonce,return_to,signed',
         'openid.sig'         => 'fxtNcegkjKNGMpOGTSgzTJscDP8=',
         'openid.op_endpoint' => 'http://www.myopenid.com/server',
         'openid.identity'    => 'http://vti.myopenid.com/',

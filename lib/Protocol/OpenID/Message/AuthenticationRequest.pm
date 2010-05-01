@@ -6,6 +6,7 @@ use warnings;
 use base 'Protocol::OpenID::Message';
 
 use Protocol::OpenID;
+use Protocol::OpenID::Extension;
 
 sub build {
     my $self = shift;
@@ -84,6 +85,7 @@ sub to_hash {
 
     my $hash = $self->SUPER::to_hash;
 
+    # OpenID 1.1
     unless ($self->ns) {
         delete $hash->{'openid.realm'};
     }
