@@ -7,6 +7,8 @@ use constant DEBUG => $ENV{PROTOCOL_OPENID_DEBUG} || 0;
 
 use Protocol::OpenID;
 
+my $URL_RE = qr{^https?://};
+
 sub discover {
     my $class = shift;
     my ($http_req_cb, $tx, $cb) = @_;
@@ -51,18 +53,32 @@ sub _http_res_on {
 
     my ($provider, $local_id);
 
+    # OpendId 2.0
     if ($provider = $links->{'openid2.provider'}) {
+        $tx->ns(OPENID_VERSION_2_0);
         $local_id = $links->{'openid2.local_id'};
     }
+
+    # OpenID 1.1
     elsif ($provider = $links->{'openid.server'}) {
         $tx->ns(undef);
         $local_id = $links->{'openid.delegate'};
     }
 
-    # openid2.provider is required
+    # OpenID provider is required
     unless ($provider) {
         $tx->error('No provider found');
         return;
+    }
+
+    # URLs must be absolute
+    unless ($provider =~ $URL_RE) {
+        $tx->error('No provider found');
+        return;
+    }
+
+    if ($local_id && $local_id !~ $URL_RE) {
+        $local_id = undef;
     }
 
     $tx->op_endpoint($provider);

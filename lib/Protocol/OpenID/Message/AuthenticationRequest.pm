@@ -7,23 +7,6 @@ use base 'Protocol::OpenID::Message';
 
 use Protocol::OpenID;
 
-sub new {
-    my $class = shift;
-    my %params = @_;
-
-    my $claimed_identifier = delete $params{claimed_identifier}
-      || OPENID_IDENTIFIER_SELECT;
-    my $op_local_identifier = delete $params{op_local_identifier}
-      || OPENID_IDENTIFIER_SELECT;
-
-    my $self = $class->SUPER::new(%params);
-
-    $self->claimed_identifier($claimed_identifier);
-    $self->op_local_identifier($op_local_identifier);
-
-    return $self;
-}
-
 sub build {
     my $self = shift;
 
@@ -52,15 +35,36 @@ sub build {
 }
 
 sub claimed_identifier {
-    @_ > 1
-      ? $_[0]->{claimed_identifier} = $_[1]
-      : $_[0]->{claimed_identifier};
+    my ($self, $value) = @_;
+
+    if (@_ > 1) {
+        $self->{claimed_identifier} = $value;
+    }
+    elsif ($self->ns) {
+        $self->{claimed_identifier} ||= OPENID_IDENTIFIER_SELECT;
+    }
+
+    return $self->{claimed_identifier};
 }
 
 sub op_local_identifier {
-    @_ > 1
-      ? $_[0]->{op_local_identifier} = $_[1]
-      : $_[0]->{op_local_identifier};
+    my ($self, $value) = @_;
+
+    if (@_ > 1) {
+        $self->{op_local_identifier} = $value;
+    }
+
+    # OpenID 2.0
+    elsif ($self->ns) {
+        $self->{op_local_identifier} ||= OPENID_IDENTIFIER_SELECT;
+    }
+
+    # OpenID 1.1
+    else {
+        $self->{op_local_identifier} ||= $self->claimed_identifier;
+    }
+
+    return $self->{op_local_identifier};
 }
 
 sub return_to    { shift->param('return_to'    => @_) }

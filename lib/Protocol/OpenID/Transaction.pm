@@ -11,11 +11,6 @@ sub new {
     my $self = {@_};
     bless $self, $class;
 
-    $self->{ns} ||= OPENID_VERSION_2_0;
-
-    $self->{claimed_identifier}  ||= OPENID_IDENTIFIER_SELECT;
-    $self->{op_local_identifier} ||= OPENID_IDENTIFIER_SELECT;
-
     return $self;
 }
 
@@ -56,15 +51,36 @@ sub op_endpoint {
 }
 
 sub claimed_identifier {
-    @_ > 1
-      ? $_[0]->{claimed_identifier} = $_[1]
-      : $_[0]->{claimed_identifier};
+    my ($self, $value) = @_;
+
+    if (@_ > 1) {
+        $self->{claimed_identifier} = $value;
+    }
+    elsif ($self->ns) {
+        $self->{claimed_identifier} ||= OPENID_IDENTIFIER_SELECT;
+    }
+
+    return $self->{claimed_identifier};
 }
 
 sub op_local_identifier {
-    @_ > 1
-      ? $_[0]->{op_local_identifier} = $_[1]
-      : $_[0]->{op_local_identifier};
+    my ($self, $value) = @_;
+
+    if (@_ > 1) {
+        $self->{op_local_identifier} = $value;
+    }
+
+    # OpenID 2.0
+    elsif ($self->ns) {
+        $self->{op_local_identifier} ||= OPENID_IDENTIFIER_SELECT;
+    }
+
+    # OpenID 1.1
+    else {
+        $self->{op_local_identifier} ||= $self->claimed_identifier;
+    }
+
+    return $self->{op_local_identifier};
 }
 
 sub to_hash {
@@ -72,10 +88,14 @@ sub to_hash {
 
     my $hash = {};
 
-    $hash->{ns}                  = $self->ns if $self->ns;
-    $hash->{claimed_identifier}  = $self->claimed_identifier;
-    $hash->{op_local_identifier} = $self->op_local_identifier;
-    $hash->{op_identifier}       = $self->op_identifier
+    $hash->{ns} = $self->ns if $self->ns;
+
+    if ($self->ns) {
+        $hash->{claimed_identifier}  = $self->claimed_identifier;
+        $hash->{op_local_identifier} = $self->op_local_identifier;
+    }
+
+    $hash->{op_identifier} = $self->op_identifier
       if $self->op_identifier;
     $hash->{op_endpoint} = $self->op_endpoint if $self->op_endpoint;
 

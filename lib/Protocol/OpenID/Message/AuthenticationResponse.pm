@@ -17,6 +17,9 @@ sub sig            { shift->param('sig'            => @_) }
 sub response_nonce { shift->param('response_nonce' => @_) }
 sub op_endpoint    { shift->param('op_endpoint'    => @_) }
 
+# OpenID 1.1
+sub user_setup_url { shift->param('user_setup_url' => @_) }
+
 sub invalidate_handle {
     @_ > 1 ? $_[0]->{invalidate_handle} = $_[1] : $_[0]->{invalidate_handle};
 }
@@ -36,13 +39,33 @@ sub from_hash {
 
     return 1 if $self->ns && $self->mode eq 'setup_needed';
 
-    return 1 if !$self->ns && $self->mode eq 'user_setup_url';
+    if (!$self->ns && $self->param('user_setup_url')) {
+        $self->mode('setup_needed');
+        $self->user_setup_url($self->param('user_setup_url'));
+        return 1;
+    }
 
     # Validate successful response
     return 1 if $self->mode eq 'id_res' && $self->_validate;
 
     $self->error('Unknown mode') unless $self->error;
     return;
+}
+
+sub to_hash {
+    my $self = shift;
+
+    my $hash = $self->SUPER::to_hash();
+
+    if (  !$hash->{'openid.ns'}
+        && $hash->{'openid.mode'}
+        && $hash->{'openid.mode'} eq 'setup_needed')
+    {
+        $hash->{'openid.mode'}           = 'id_res';
+        $hash->{'openid.user_setup_url'} = $self->user_setup_url;
+    }
+
+    return $hash;
 }
 
 sub _validate {
@@ -55,7 +78,7 @@ sub _validate {
     }
 
     # Check OP Endpoint URL
-    unless ($self->op_endpoint) {
+    if ($self->ns && !$self->op_endpoint) {
         $self->error('OP Endpoint is missing');
         return;
     }

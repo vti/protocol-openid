@@ -18,7 +18,7 @@ ok(!$id->parse(''));
 $id = Protocol::OpenID::Identifier->new;
 ok(!$id->parse('print {};'));
 
-$id = Protocol::OpenID::Identifier->new();
+$id = Protocol::OpenID::Identifier->new;
 $id->type('URL');
 $id->value('http://example.com/');
 is("$id", 'http://example.com/');

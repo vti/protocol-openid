@@ -132,14 +132,14 @@ is_deeply(
 
 # OpenID 1.1 compatibility check
 $req = Protocol::OpenID::Message::AuthenticationRequest->new;
+$req->mode('check_immediate');
 $req->claimed_identifier('http://vti.foo.bar/');
-$req->op_local_identifier('http://baz.foo.bar/');
 $req->return_to('http://foo.bar/');
 $req->realm('http://*.foo.bar/');
 is_deeply(
     $req->to_hash,
     {   'openid.mode'         => 'checkid_setup',
-        'openid.identity'     => 'http://baz.foo.bar/',
+        'openid.identity'     => 'http://vti.foo.bar/',
         'openid.return_to'    => 'http://foo.bar/',
         'openid.trust_root'   => 'http://*.foo.bar/'
     }

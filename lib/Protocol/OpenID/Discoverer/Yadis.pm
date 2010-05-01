@@ -40,7 +40,9 @@ sub discover {
                     my $type = $service->Type->[0]->content;
 
                     # OP Identifier
-                    if ($type eq 'http://specs.openid.net/auth/2.0/server') {
+                    if ($type eq OPENID_VERSION_2_0_SERVER) {
+                        $tx->ns(OPENID_VERSION_2_0);
+
                         $tx->op_endpoint($service->URI->[0]->content);
                         $tx->op_identifier($url);
 
@@ -50,7 +52,7 @@ sub discover {
                     }
 
                     # Claimed Identifier
-                    elsif ($type eq 'http://specs.openid.net/auth/2.0/signon')
+                    elsif ($type eq OPENID_VERSION_2_0_SIGNON)
                     {
 
                         # Optional OP Local Identifier
@@ -59,6 +61,8 @@ sub discover {
                         {
                             $op_local_identifier = $local_id->content;
                         }
+
+                        $tx->ns(OPENID_VERSION_2_0);
 
                         $tx->op_endpoint($service->URI->[0]->content);
                         $tx->claimed_identifier($url);

@@ -3,8 +3,9 @@
 use strict;
 use warnings;
 
-use Test::More tests => 15;
+use Test::More tests => 18;
 
+use Protocol::OpenID;
 use Protocol::OpenID::Transaction;
 use Protocol::OpenID::Discoverer::HTML;
 
@@ -99,6 +100,7 @@ EOF
       } => $tx => sub {
         my $tx = shift;
 
+        is($tx->ns, OPENID_VERSION_2_0);
         is($tx->op_endpoint,         'https://exampleprovider.com/server');
         is($tx->op_local_identifier, 'https://me.exampleprovider.com/');
     }
@@ -119,6 +121,7 @@ EOF
       } => $tx => sub {
         my $tx = shift;
 
+        ok(!$tx->ns);
         is($tx->op_endpoint,         'https://exampleprovider.com/server');
         is($tx->op_local_identifier, 'https://me.exampleprovider.com/');
     }
@@ -189,5 +192,23 @@ EOF
 
         is($tx->op_endpoint,         'https://exampleprovider.com/server');
         is($tx->op_local_identifier, 'http://multi.exampleprovider.com/');
+    }
+);
+
+# Relative urls
+$tx = Protocol::OpenID::Transaction->new;
+Protocol::OpenID::Discoverer::HTML->discover(
+    sub {
+        my ($url, $method, $headers, $body, $cb) = @_;
+
+        $cb->('http://multi.exampleprovider.com/', 200, $headers, <<'EOF');
+<head>
+    <link rel="openid2.provider openid.server" href="/server" />
+</head>
+EOF
+      } => $tx => sub {
+        my $tx = shift;
+
+        is($tx->error, 'No provider found');
     }
 );

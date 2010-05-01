@@ -32,6 +32,29 @@ sub remove_cb {
     @_ > 1 ? $_[0]->{remove_cb} = $_[1] : $_[0]->{remove_cb};
 }
 
+sub normal_cb {
+    @_ > 1 ? $_[0]->{normal_cb} = $_[1] : $_[0]->{normal_cb};
+}
+sub redirect_cb {
+    @_ > 1 ? $_[0]->{redirect_cb} = $_[1] : $_[0]->{redirect_cb};
+}
+
+sub canceled_cb {
+    @_ > 1 ? $_[0]->{canceled_cb} = $_[1] : $_[0]->{canceled_cb};
+}
+
+sub setup_needed_cb {
+    @_ > 1 ? $_[0]->{setup_needed_cb} = $_[1] : $_[0]->{setup_needed_cb};
+}
+
+sub error_cb {
+    @_ > 1 ? $_[0]->{error_cb} = $_[1] : $_[0]->{error_cb};
+}
+
+sub success_cb {
+    @_ > 1 ? $_[0]->{success_cb} = $_[1] : $_[0]->{success_cb};
+}
+
 sub _return_to {
     @_ > 1 ? $_[0]->{_return_to} = $_[1] : $_[0]->{_return_to};
 }
@@ -96,8 +119,11 @@ sub new {
     $self->{cache_get_cb} ||= \&_cache_get_cb;
     $self->{cache_set_cb} ||= \&_cache_set_cb;
 
-    $self->{find_cb}   ||= sub { };
-    $self->{remove_cb} ||= sub { };
+    my $a = $self->{find_cb};
+    my $b = $self->{store_cb};
+    unless (($a && $b) || (!$a && !$b)) {
+        die 'find_cb and store_cb must be both undefined or defined';
+    }
 
     $self->return_to($return_to) if $return_to;
 
@@ -151,9 +177,10 @@ sub authenticate {
         my $identifier = Protocol::OpenID::Identifier->new;
 
         unless ($identifier->parse($openid_identifier)) {
-            warn "$identifier";
             $tx->error('Wrong OpenID identifier');
-            return $cb->($self, $tx);
+
+            return $cb->($self, $tx) if $cb;
+            return $self->error_cb->($tx);
         }
 
         $tx->identifier($identifier->to_string);
@@ -164,18 +191,27 @@ sub authenticate {
                 my ($self, $tx) = @_;
 
                 # Discovery failed
-                return $cb->($self, $tx) if $tx->error;
+                if ($tx->error) {
+                    return $cb->($self, $tx) if $cb;
+                    return $self->error_cb->($tx);
+                }
 
                 # Association
                 return $self->_associate(
                     $tx => sub {
                         my ($self, $tx) = @_;
 
+                        if ($tx->error) {
+                            return $cb->($self, $tx) if $cb;
+                            return $self->error_cb->($tx);
+                        }
+
                         my $req =
                           Protocol::OpenID::Message::AuthenticationRequest->new;
 
-                        $req->ns($tx->ns);
+                        $req->ns($tx->ns) if $tx->ns;
                         $req->claimed_identifier($tx->claimed_identifier);
+
                         $req->return_to($self->return_to);
 
                         # Association is OPTIONAL
@@ -185,7 +221,8 @@ sub authenticate {
                         $tx->request($req);
                         $tx->state('redirect');
 
-                        return $cb->($self, $tx);
+                        return $cb->($self, $tx) if $cb;
+                        return $self->redirect_cb->($tx);
                     }
                 );
             }
@@ -203,23 +240,46 @@ sub authenticate {
         unless ($ok) {
             $tx->error($response->error
                   || "Can't parse authentication response from OP");
-            return $cb->($self, $tx);
+            return $cb->($self, $tx) if $cb;
+            return $self->error_cb->($tx);
         }
 
+        warn 'Save association to the OpenID transaction' if DEBUG;
         $tx->response($response);
-
-        $tx->op_endpoint($response->op_endpoint);
 
         # Special case, error mode
         if ($response->mode eq 'error') {
+            warn 'Association has an error' if DEBUG;
             $tx->error($response->param('error'));
-            return $cb->($self, $tx);
+            return $cb->($self, $tx) if $cb;
+            return $self->error_cb->($tx);
         }
 
         unless ($response->mode eq 'id_res') {
+            warn 'Association response is not successful' if DEBUG;
             $tx->state($response->mode);
-            return $cb->($self, $tx);
+            return $cb->($self, $tx) if $cb;
+
+            if ($response->mode eq 'setup_needed') {
+                my $location;
+
+                # OpenID 1.1 sends url for user redirection
+                $location = $response->user_setup_url unless $response->ns;
+
+                return $self->setup_needed_cb->($tx, $location);
+            }
+            elsif ($response->mode eq 'cancel') {
+                return $self->canceled_cb->($tx);
+            }
+
+            $self->error('Internal error');
+            return;
         }
+
+        $tx->identifier($response->identity);
+        $tx->op_endpoint($response->op_endpoint);
+
+        warn 'Verifying assertion' if DEBUG;
 
         # 11. Verifying Assertions
 
@@ -227,7 +287,8 @@ sub authenticate {
       # (Section 11.1 (Verifying the Return URL))
         if ($self->return_to ne $response->return_to) {
             $tx->error('Return to values do not match');
-            return $cb->($self, $tx);
+            return $cb->($self, $tx) if $cb;
+            return $self->error_cb->($tx);
         }
 
         # Discovered information matches the information in the assertion
@@ -239,22 +300,30 @@ sub authenticate {
       # The signature on the assertion is valid and all fields that are
       # required to be signed are signed (Section 11.4 (Verifying Signatures))
 
+      warn 'Verifying signature' if DEBUG;
         $self->_verify_signature(
             $tx => sub {
                 my ($self, $tx) = @_;
 
-                return $cb->($self, $tx) if $tx->error;
+                if ($tx->error) {
+                    return $cb->($self, $tx) if $cb;
+                    return $self->error_cb->($tx);
+                }
 
+                warn 'Signature is ok' if DEBUG;
                 $tx->state('success');
-                return $cb->($self, $tx);
+                return $cb->($self, $tx) if $cb;
+                return $self->success_cb->($tx);
             }
         );
     }
 
     # Do nothing
     else {
+        warn 'Normal request' if DEBUG;
         $tx->state('init');
-        $cb->($self, $tx);
+        return $cb->($self, $tx) if $cb;
+        return $self->normal_cb->();
     }
 }
 
@@ -277,6 +346,7 @@ sub _discover {
                 return $cb->($self, $tx);
             }
 
+            warn 'No cache hit, doing real discovery' if DEBUG;
             Protocol::OpenID::Discoverer->discover(
                 $self->http_req_cb => $tx => sub {
                     my ($tx) = @_;
@@ -364,6 +434,10 @@ sub _associate {
 sub _verify_signature {
     my ($self, $tx, $cb) = @_;
 
+    return $self->_verify_signature_directly($tx, $cb) unless $self->find_cb;
+
+    warn 'Try to find associaction in cache' if DEBUG;
+
     $self->find_cb->(
         $tx->response->assoc_handle => sub {
             if (my $assoc = shift) {
@@ -377,6 +451,7 @@ sub _verify_signature {
                 my $rp_signature = $sg->calculate($assoc->{secret});
 
                 if ($op_signature ne $rp_signature) {
+                    warn 'Saved signature does not match' if DEBUG;
                     $self->remove_cb->(
                         $assoc->assoc_handle =>
                           sub { $self->_verify_signature_directly($tx, $cb); }
@@ -396,8 +471,35 @@ sub _verify_signature {
 sub _verify_signature_directly {
     my ($self, $tx, $cb) = @_;
 
+    warn 'Verifying signature directly' if DEBUG;
+
     my $direct_request =
       Protocol::OpenID::Message::VerificationRequest->new($tx->response);
+
+    # OpenID 1.1 compatibility
+    if (!$tx->ns && !$tx->op_endpoint) {
+        $self->_discover(
+            $tx => sub {
+                my ($self, $tx) = @_;
+
+                # Discovery failed
+                if ($tx->error) {
+                    return $cb->($self, $tx) if $cb;
+                    return $self->error_cb->($tx);
+                }
+
+                return $self->_verify_signature_directly_req($tx, $direct_request, $cb);
+            }
+        );
+    }
+    else {
+        $self->_verify_signature_directly_req($tx, $direct_request, $cb);
+    }
+
+}
+
+sub _verify_signature_directly_req {
+    my ($self, $tx, $direct_request, $cb) = @_;
 
     $self->http_req_cb->(
         $tx->op_endpoint,

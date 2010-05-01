@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 28;
+use Test::More tests => 32;
 
 use Protocol::OpenID;
 use Protocol::OpenID::Nonce;
@@ -34,10 +34,6 @@ ok( !$res->from_hash(
     )
 );
 is($res->error, 'Unknown mode');
-
-$res = Protocol::OpenID::Message::AuthenticationResponse->new;
-ok($res->from_hash({'openid.mode' => 'user_setup_url'}));
-is($res->mode, 'user_setup_url');
 
 $res = Protocol::OpenID::Message::AuthenticationResponse->new;
 ok( $res->from_hash(
@@ -174,6 +170,51 @@ is_deeply(
         'openid.return_to'      => 'http://foo.com/',
         'openid.response_nonce' => $current_nonce,
         'openid.op_endpoint'    => 'http://myserverprovider.com/',
+        'openid.claimed_id'     => 'http://user.myserverprovider.com/',
+        'openid.identity'       => 'http://user.myserverprovider.com/',
+        'openid.assoc_handle'   => 'FOO',
+        'openid.signed'         => 'foo',
+        'openid.sig'            => 'bar'
+    }
+);
+
+# OpenID 1.1 compatibility
+$res = Protocol::OpenID::Message::AuthenticationResponse->new;
+ok( $res->from_hash(
+        {   'openid.mode'           => 'id_res',
+            'openid.user_setup_url' => 'http://foo.com/',
+        }
+    )
+);
+is($res->mode, 'setup_needed');
+
+is_deeply(
+    $res->to_hash,
+    {   'openid.mode'           => 'id_res',
+        'openid.user_setup_url' => 'http://foo.com/'
+    }
+);
+
+$res = Protocol::OpenID::Message::AuthenticationResponse->new;
+ok( $res->from_hash(
+        {   'openid.mode'           => 'id_res',
+            'openid.return_to'      => 'http://foo.com/',
+            'openid.identity'       => 'http://user.myserverprovider.com/',
+            'openid.response_nonce' => $current_nonce,
+            'openid.claimed_id'     => 'http://user.myserverprovider.com/',
+            'openid.assoc_handle'   => 'FOO',
+            'openid.signed'         => 'foo',
+            'openid.sig'            => 'bar'
+        }
+    )
+);
+is($res->mode, 'id_res');
+
+is_deeply(
+    $res->to_hash,
+    {   'openid.mode'           => 'id_res',
+        'openid.return_to'      => 'http://foo.com/',
+        'openid.response_nonce' => $current_nonce,
         'openid.claimed_id'     => 'http://user.myserverprovider.com/',
         'openid.identity'       => 'http://user.myserverprovider.com/',
         'openid.assoc_handle'   => 'FOO',
