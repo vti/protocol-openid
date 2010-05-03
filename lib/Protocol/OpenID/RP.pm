@@ -24,6 +24,8 @@ sub http_req_cb {
     @_ > 1 ? $_[0]->{http_req_cb} = $_[1] : $_[0]->{http_req_cb};
 }
 
+sub state_cb { @_ > 1 ? $_[0]->{state_cb} = $_[1] : $_[0]->{state_cb} }
+
 sub store_cb { @_ > 1 ? $_[0]->{store_cb} = $_[1] : $_[0]->{store_cb} }
 
 sub find_cb { @_ > 1 ? $_[0]->{find_cb} = $_[1] : $_[0]->{find_cb} }
@@ -179,6 +181,8 @@ sub authenticate {
 
     my $tx = Protocol::OpenID::Transaction->new;
 
+    $tx->state_cb(sub { $self->state_cb->(shift) }) if $self->state_cb;
+
     # 7.1. Initiation from User Agent
     if (my $openid_identifier = $params->{'openid_identifier'}) {
 
@@ -193,6 +197,8 @@ sub authenticate {
         }
 
         $tx->identifier($identifier->to_string);
+
+        $tx->state('identifier');
 
         # 7.3. Discovery
         return $self->_discover(

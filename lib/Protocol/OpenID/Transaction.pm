@@ -11,6 +11,8 @@ sub new {
     my $self = {@_};
     bless $self, $class;
 
+    $self->{state} = 'init';
+
     return $self;
 }
 
@@ -26,8 +28,8 @@ sub response {
     @_ > 1 ? $_[0]->{response} = $_[1] : $_[0]->{response};
 }
 
-sub state {
-    @_ > 1 ? $_[0]->{state} = $_[1] : $_[0]->{state};
+sub state_cb {
+    @_ > 1 ? $_[0]->{state_cb} = $_[1] : $_[0]->{state_cb};
 }
 
 sub association {
@@ -48,6 +50,18 @@ sub ns {
 
 sub op_endpoint {
     @_ > 1 ? $_[0]->{op_endpoint} = $_[1] : $_[0]->{op_endpoint};
+}
+
+sub state {
+    my $self = shift;
+
+    if (@_) {
+        $self->{state} = shift;
+        $self->state_cb->($self) if $self->state_cb;
+    }
+    else {
+        return $self->{state};
+    }
 }
 
 sub claimed_identifier {
@@ -98,6 +112,8 @@ sub to_hash {
     $hash->{op_identifier} = $self->op_identifier
       if $self->op_identifier;
     $hash->{op_endpoint} = $self->op_endpoint if $self->op_endpoint;
+
+    $hash->{state} = $self->state;
 
     return $hash;
 }
