@@ -20,6 +20,8 @@ sub discover {
 
                 return $cb->($tx) unless $tx->error;
 
+                $tx->error(undef);
+
                 Protocol::OpenID::Discoverer::HTML->discover(
                     $http_req_cb,
                     $tx => sub {
