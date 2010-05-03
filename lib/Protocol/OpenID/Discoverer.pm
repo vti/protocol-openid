@@ -13,19 +13,26 @@ sub discover {
     my ($http_req_cb, $tx, $cb) = @_;
 
     if (HAVE_YADIS) {
+        $tx->state('discovery_yadis_start');
         Protocol::OpenID::Discoverer::Yadis->discover(
             $http_req_cb,
             $tx => sub {
                 my $tx = shift;
 
-                return $cb->($tx) unless $tx->error;
+                unless ($tx->error) {
+                    $tx->state('discovery_yadis_done');
+                    return $cb->($tx);
+                }
 
                 $tx->error(undef);
 
+                $tx->state('discovery_html_start');
                 Protocol::OpenID::Discoverer::HTML->discover(
                     $http_req_cb,
                     $tx => sub {
                         my $tx = shift;
+
+                        $tx->state('discovery_html_done') unless $tx->error;
 
                         return $cb->($tx);
                     }
@@ -34,10 +41,13 @@ sub discover {
         );
     }
     else {
+        $tx->state('discovery_html_start');
         Protocol::OpenID::Discoverer::HTML->discover(
             $http_req_cb,
             $tx => sub {
                 my $tx = shift;
+
+                $tx->state('discovery_html_done') unless $tx->error;
 
                 return $cb->($tx);
             }

@@ -115,6 +115,10 @@ sub to_hash {
 
     $hash->{state} = $self->state;
 
+    if ($self->association) {
+        $hash->{association} = $self->association->to_hash;
+    }
+
     return $hash;
 }
 

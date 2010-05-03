@@ -3,10 +3,11 @@
 use strict;
 use warnings;
 
-use Test::More tests => 6;
+use Test::More tests => 7;
 
 use Protocol::OpenID;
 use Protocol::OpenID::Transaction;
+use Protocol::OpenID::Association;
 
 my $tx = Protocol::OpenID::Transaction->new;
 $tx->ns(OPENID_VERSION_2_0);
@@ -43,3 +44,6 @@ is($tx->state, 'init');
 $tx->state_cb(sub { ok(1) });
 $tx->state('foo');
 is($tx->state, 'foo');
+
+$tx->association(Protocol::OpenID::Association->new);
+ok($tx->to_hash->{association}->{secret});

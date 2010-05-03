@@ -197,7 +197,6 @@ sub authenticate {
         }
 
         $tx->identifier($identifier->to_string);
-
         $tx->state('identifier');
 
         # 7.3. Discovery
@@ -267,17 +266,18 @@ sub authenticate {
 
         warn 'Save association to the OpenID transaction' if DEBUG;
         $tx->response($response);
+        $tx->state('authentication_start');
 
         # Special case, error mode
         if ($response->mode eq 'error') {
-            warn 'Association has an error' if DEBUG;
+            warn 'Authentication has an error' if DEBUG;
             $tx->error($response->param('error'));
             return $cb->($self, $tx) if $cb;
             return $self->error_cb->($tx);
         }
 
         unless ($response->mode eq 'id_res') {
-            warn 'Association response is not successful' if DEBUG;
+            warn 'Authentication response is not successful' if DEBUG;
             $tx->state($response->mode);
             return $cb->($self, $tx) if $cb;
 
@@ -301,6 +301,8 @@ sub authenticate {
         $tx->op_endpoint($response->op_endpoint);
 
         warn 'Verifying assertion' if DEBUG;
+
+        $tx->state('verification_start');
 
         # 11. Verifying Assertions
 
@@ -352,7 +354,7 @@ sub _discover {
     my $self = shift;
     my ($tx, $cb) = @_;
 
-    $tx->state('discovery');
+    $tx->state('discovery_start');
 
     my $identifier = $tx->identifier;
 
@@ -364,6 +366,8 @@ sub _discover {
                 warn 'Discovery cache hit' if DEBUG;
 
                 $tx->from_hash($cache);
+                $tx->state('discovery_done');
+
                 return $cb->($self, $tx);
             }
 
@@ -377,6 +381,8 @@ sub _discover {
                             "discover:$identifier",
                             $tx->to_hash => sub {
                                 warn 'Cached discovery' if DEBUG;
+
+                                $tx->state('discovery_done');
 
                                 return $cb->($self, $tx);
                             }
@@ -402,7 +408,7 @@ sub _associate {
 
     warn 'Performing association' if DEBUG;
 
-    $tx->state('association');
+    $tx->state('association_start');
 
     my $request = Protocol::OpenID::Message::AssociationRequest->new($assoc);
 
@@ -444,6 +450,7 @@ sub _associate {
 
                 # Save association to the transaction
                 $tx->association($assoc);
+                $tx->state('association_done');
 
                 $self->store_cb->($assoc->assoc_handle => $assoc->to_hash =>
                       sub { return $cb->($self, $tx); });
@@ -455,6 +462,7 @@ sub _associate {
 sub _verify_signature {
     my ($self, $tx, $cb) = @_;
 
+    $tx->state('verification_signature_start');
     return $self->_verify_signature_directly($tx, $cb) unless $self->find_cb;
 
     warn 'Try to find associaction in cache' if DEBUG;
@@ -479,6 +487,7 @@ sub _verify_signature {
                     );
                 }
                 else {
+                    $tx->state('verification_locally_done');
                     $cb->($self, $tx);
                 }
             }
@@ -493,6 +502,8 @@ sub _verify_signature_directly {
     my ($self, $tx, $cb) = @_;
 
     warn 'Verifying signature directly' if DEBUG;
+
+    $tx->state('verification_directly_start');
 
     my $direct_request =
       Protocol::OpenID::Message::VerificationRequest->new($tx->response);
@@ -550,6 +561,8 @@ sub _verify_signature_directly_req {
 
             $tx->error('Signature not verified')
               if $direct_response->is_valid eq 'false';
+
+            $tx->start('verification_directly_done');
 
             $cb->($self, $tx);
         }
