@@ -12,7 +12,7 @@ my $mm = $ExtUtils::MakeMaker::VERSION;
 WriteMakefile(
     NAME         => 'Protocol::OpenID',
     VERSION_FROM => 'lib/Protocol/OpenID.pm',
-    ABSTRACT     => 'OpenID implementation',
+    ABSTRACT     => 'OpenID async implementation',
     AUTHOR       => 'Viacheslav Tykhanovskyi <vti@cpan.org>',
 
     ($mm < 6.3002 ? () : ('LICENSE' => 'artistic_2')),
@@ -39,8 +39,11 @@ WriteMakefile(
     PREREQ_PM => {
         'Digest::SHA1'    => 0,
         'Math::BigInt'    => 0,
-        'Protocol::Yadis' => 0,
+        'Crypt::DH'       => 0,
+        'Protocol::Yadis' => '0.990102',
         'Time::Local'     => 0,
+        'Exporter'        => 0,
+        'MIME::Base64'    => 0
     },
     test => {TESTS => 't/*.t t/*/*.t t/*/*/*.t t/*/*/*/*.t'}
 );
